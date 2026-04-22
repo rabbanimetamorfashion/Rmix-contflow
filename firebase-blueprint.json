@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "A registered user of the application",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["master_admin", "admin", "production", "viewer"] },
+        "createdAt": { "type": "number", "description": "Timestamp" }
+      },
+      "required": ["email", "role", "createdAt"]
+    },
+    "job": {
+      "title": "Job Order",
+      "description": "A production job order",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "assigned", "in_progress", "completed"] },
+        "assigneeId": { "type": "string", "description": "User ID of the production team member" },
+        "assignerId": { "type": "string", "description": "User ID of the admin who assigned the job" },
+        "createdAt": { "type": "number" },
+        "deadline": { "type": "number", "description": "Timestamp, set once by assignee" },
+        "gdriveLink": { "type": "string" },
+        "progress": { "type": "number", "description": "0 to 100" }
+      },
+      "required": ["title", "status", "createdAt"]
+    },
+    "notification": {
+      "title": "Notification",
+      "description": "System notifications for users",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "message": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "number" },
+        "type": { "type": "string", "enum": ["assignment", "deadline_approaching"] }
+      },
+      "required": ["userId", "message", "read", "createdAt", "type"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/user" },
+      "description": "User profiles and roles"
+    },
+    "/jobs/{jobId}": {
+      "schema": { "$ref": "#/entities/job" },
+      "description": "Job orders for the production team"
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/notification" },
+      "description": "Notifications directed at specific users"
+    }
+  }
+}

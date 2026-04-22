@@ -1,0 +1,142 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isMasterAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == "rabbani.metamorfashion@gmail.com" ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'master_admin')
+      );
+    }
+    
+    function isAdminOrMaster() {
+       return isMasterAdmin() || (
+        isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+    
+    function isProduction() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'production';
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // USER VALIDATION
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role', 'createdAt', 'displayName']) &&
+             data.email is string && data.email.size() <= 100 &&
+             data.displayName is string && data.displayName.size() <= 100 &&
+             data.role in ['master_admin', 'admin', 'production', 'client'] &&
+             data.createdAt is number;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      
+      allow create: if isSignedIn() && request.auth.uid == userId && 
+                       isValidUser(incoming()) &&
+                       (incoming().role == 'client' || incoming().email == "rabbani.metamorfashion@gmail.com");
+
+      allow update: if isSignedIn() && isValidUser(incoming()) && (
+        isMasterAdmin() ||
+        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['displayName']))
+      );
+    }
+
+    // JOB VALIDATION
+    function isValidJob(data) {
+      let isCoreValid = data.keys().hasAll(['title', 'description', 'status', 'createdAt', 'progress']) &&
+             data.title is string && data.title.size() <= 200 &&
+             data.description is string && data.description.size() <= 2000 &&
+             data.status in ['open', 'assigned', 'in_progress', 'completed', 'posted'] &&
+             data.createdAt is number &&
+             data.progress is number && data.progress >= 0 && data.progress <= 100;
+             
+      let isOptionalsValid = (!('creatorId' in data) || (data.creatorId is string && data.creatorId.size() <= 128)) &&
+             (!('jobType' in data) || (data.jobType is string && data.jobType.size() <= 100)) &&
+             (!('quantity' in data) || data.quantity is number) &&
+             (!('brand' in data) || (data.brand is string && data.brand.size() <= 100)) &&
+             (!('campaign' in data) || (data.campaign is string && data.campaign.size() <= 200)) &&
+             (!('requestedDeadline' in data) || data.requestedDeadline is number) &&
+             (!('scriptLink' in data) || (data.scriptLink is string && data.scriptLink.size() <= 1000)) &&
+             (!('assigneeId' in data) || data.assigneeId is string) &&
+             (!('assigneeIds' in data) || data.assigneeIds is list) &&
+             (!('checklists' in data) || data.checklists is list) &&
+             (!('assignerId' in data) || data.assignerId is string) &&
+             (!('gdriveLink' in data) || data.gdriveLink is string) &&
+             (!('deadline' in data) || data.deadline is number) &&
+             (!('assignedAt' in data) || data.assignedAt is number) &&
+             (!('startedAt' in data) || data.startedAt is number) &&
+             (!('finishedAt' in data) || data.finishedAt is number) &&
+             (!('updatedAt' in data) || data.updatedAt is number);
+
+      return isCoreValid && isOptionalsValid;
+    }
+
+    match /jobs/{jobId} {
+      allow read: if isSignedIn();
+      
+      allow create: if isSignedIn() && 
+                       isValidId(jobId) && isValidJob(incoming()) &&
+                       (isAdminOrMaster() || (incoming().status == 'open' && incoming().creatorId == request.auth.uid && incoming().progress == 0));
+                       
+      allow update: if isSignedIn() && isValidJob(incoming()) && (
+        isAdminOrMaster() ||
+        (
+          (
+            ('assigneeId' in existing() && existing().assigneeId == request.auth.uid) || 
+            ('assigneeIds' in existing() && request.auth.uid in existing().assigneeIds)
+          ) && 
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'progress', 'gdriveLink', 'deadline', 'checklists', 'startedAt', 'finishedAt', 'updatedAt']) &&
+          ( !('deadline' in incoming().diff(existing()).affectedKeys()) || (!('deadline' in existing()) && incoming().deadline is number) )
+        )
+      );
+      
+      allow delete: if isMasterAdmin();
+    }
+    
+    match /jobs/{jobId}/comments/{commentId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid &&
+                       incoming().jobId == jobId && incoming().text is string && 
+                       incoming().createdAt is number;
+      allow update, delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+    
+    // NOTIFICATION VALIDATION
+    function isValidNotification(data) {
+      return data.keys().hasAll(['userId', 'message', 'read', 'createdAt', 'type']) &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.message is string && data.message.size() <= 500 &&
+             data.read is bool &&
+             data.createdAt is number &&
+             data.type in ['assignment', 'deadline_approaching', 'new_order', 'new_comment'];
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      allow create: if (isAdminOrMaster() || isSignedIn()) && isValidId(notificationId) && isValidNotification(incoming());
+      
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && 
+                       isValidNotification(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+    }
+  }
+}
