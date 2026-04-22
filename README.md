@@ -1,105 +1,134 @@
-# ContentFlow (Production Job Order Management)
+# ContentFlow (Production Job Order Management) - IT Deployment Guide
 
-This repository contains the source code for the ContentFlow application, a production job order management and progress tracking system for creative content teams. It is built using React, Vite, Tailwind CSS, an Express-based Node server, and Firebase (Authentication & Firestore).
+This extremely detailed guide is written for System Administrators and IT personnel to deploy the ContentFlow web application onto a company-owned Linux server (Assuming **Ubuntu 20.04 / 22.04 LTS** or Debian-based equivalent).
 
-Follow these step-by-step instructions to deploy this application on your company's proprietary server and hosting infrastructure.
+The application architecture is: **Vite (React JS) Frontend + Express (Node JS) Backend Server + Firebase (NoSQL Database & Authentication)**. 
 
----
-
-## 📋 Prerequisites
-
-Before you begin, ensure your company server has the following installed:
-- **Node.js**: Version 18.x or 20.x (Recommended)
-- **Git**: To clone the repository
-- **NPM** (comes with Node.js)
-- A process manager like **PM2** (Highly recommended to keep the app running in the background)
-- A web server like **Nginx** or **Apache** (To point your domain name to the application's port)
+The target production URL for this guide is: **`https://taskmarketing.rsys.systems`**
 
 ---
 
-## 🚀 Step-by-Step Deployment Guide
+## 🏗 Phase 1: Server Preparation
 
-### Step 1: Clone the Repository to the Server
-SSH into your company server and navigate to the directory where you want to host the web application.
+Log into your server via SSH as `root` or a user with `sudo` privileges. Run all the following commands to ensure the server has the necessary software.
 
+### 1. Update the System
 ```bash
-cd /var/www/  # Or your preferred directory
-git clone <your-github-repo-url>
-cd <your-repo-folder-name>
+sudo apt update
+sudo apt upgrade -y
 ```
 
-### Step 2: Install Dependencies
-Run the following command to download and install all necessary Node modules required by the web app and server.
+### 2. Install Git and Nginx
+Nginx will be used as the reverse proxy to expose the app to the internet.
+```bash
+sudo apt install git nginx -y
+```
 
+### 3. Install Node.js (Version 20.x LTS)
+We need modern Node.js installed to run the application. We will use the official NodeSource repository.
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+Verify the installation:
+```bash
+node -v   # Should output v20...
+npm -v    # Should output 10... (or similar)
+```
+
+### 4. Install PM2 globally
+PM2 is a production process manager for Node.js. It will keep the server running in the background and automatically restart it if it crashes or if the server reboots.
+```bash
+sudo npm install -g pm2
+```
+
+---
+
+## 🌐 Phase 2: DNS Routing
+
+Before proceeding with SSL generation later, you must point the domain to this server.
+1. Log into your domain registrar's DNS manager (for `rsys.systems`).
+2. Add an **A Record**:
+   - **Host/Name:** `taskmarketing`
+   - **Value/Target:** `<YOUR_SERVER_PUBLIC_IP_ADDRESS>`
+   - **TTL:** Auto / Default
+
+---
+
+## 🚀 Phase 3: Application Deployment
+
+### 1. Create the App Directory
+```bash
+sudo mkdir -p /var/www/taskmarketing
+sudo chown -R $USER:$USER /var/www/taskmarketing
+cd /var/www/taskmarketing
+```
+
+### 2. Clone the Repository
+*(Replace the URL below with the actual Git repository URL of this project)*
+```bash
+git clone <YOUR_GITHUB_REPO_URL> .
+```
+
+### 3. Install NPM Dependencies
+This downloads all required libraries securely to the `node_modules` folder.
 ```bash
 npm install
 ```
 
-### Step 3: Configure Environment Variables
-If your application uses environment variables (like API keys), create your `.env` file. You can copy the provided example file:
-
+### 4. Configure Environment Variables
+Copy the template environment file.
 ```bash
 cp .env.example .env
 ```
-Open the `.env` file using a text editor (like `nano` or `vim`) and fill in your actual production values (such as your `GEMINI_API_KEY` or `APP_URL`).
+Open the `.env` file and verify or update the variables:
+```bash
+nano .env
+```
+Ensure `APP_URL` is set to `https://taskmarketing.rsys.systems` if required by the app, and save (`CTRL + X`, then `Y`, then `Enter`).
 
-### Step 4: Build the Application
-You must compile the Vite React frontend into static, production-ready files. The Express server will serve these files.
-
+### 5. Build the Production Application
+This command compiles the React frontend into highly optimized static HTML/CSS/JS files inside the `/dist` folder.
 ```bash
 npm run build
 ```
-*(This commands generates a `/dist` folder containing the optimized production frontend).*
 
-### Step 5: Start the Production Server
-The application needs to be started securely. By default, it will run on port `3000`. 
+---
 
-**Option A: Basic Start (For Testing)**
+## ⚙️ Phase 4: Start the Application with PM2
+
+Now we will start the Express backend server (which also serves the compiled React app) on port `3000`.
+
+### 1. Start the app
 ```bash
-npm start
+pm2 start npm --name "taskmarketing-app" -- start
 ```
 
-**Option B: Production Start using PM2 (Recommended)**
-If you close your SSH terminal, the standard `npm start` command will stop. PM2 runs the app in the background permanently and restarts it if the server crashes.
+### 2. Instruct PM2 to start on server boot
+```bash
+pm2 startup
+```
+*(Copy and paste the exact command PM2 outputs on the screen to finalize the startup script, then run it).*
 
-1. Install PM2 globally (if you haven't already):
-   ```bash
-   sudo npm install -g pm2
-   ```
-2. Start the application with PM2:
-   ```bash
-   pm2 start npm --name "contentflow-app" -- start
-   ```
-3. Ensure PM2 restarts automatically if the physical server reboots:
-   ```bash
-   pm2 startup
-   pm2 save
-   ```
+### 3. Save the PM2 configuration
+```bash
+pm2 save
+```
+The app is now running locally on exactly `http://localhost:3000`.
 
 ---
 
-## 🔐 CRITICAL: Firebase Google Login Configuration
-Because you are moving the application to your company's custom domain name or IP address, **Google Login will fail automatically** unless you explicitly whitelist your domain in Firebase.
+## 🛡️ Phase 5: Nginx Reverse Proxy & SSL (HTTPS)
 
-1. Log into the [Firebase Console](https://console.firebase.google.com/).
-2. Select the Firebase project associated with this app (`gen-lang-client-0162825138`).
-3. On the left sidebar, click **Authentication**, then select the **Settings** tab.
-4. From the left sidebar of the settings area, click on **Authorized domains**.
-5. Click **Add Domain** and enter your exact production domain: `taskmarketing.rsys.systems`.
-6. Save the settings. Login popups will now work normally on your company server.
+We need to map port 80 (HTTP) to port 3000, and secure it with port 443 (HTTPS) via SSL. **Google Authentication will fail outright if the site does not have a valid SSL certificate.**
 
-*(Note: Your `firebase-applet-config.json` doesn't need to be hidden or secured via environment variables; it is completely safe to be public on the client. Security is enforced entirely by the Firestore Security Rules we deployed).*
+### 1. Create the Nginx Configuration Block
+```bash
+sudo nano /etc/nginx/sites-available/taskmarketing
+```
 
----
-
-## 🌐 Step 6: Web Server & DNS Configuration (Nginx Example)
-
-To serve the app on `taskmarketing.rsys.systems`, you need to:
-1. Ensure your **DNS A-Record** for `taskmarketing.rsys.systems` points to your server's IP address.
-2. Set up a reverse proxy. By default, the Express server listens on port `3000`. 
-
-Here is the exact **Nginx** configuration block (`/etc/nginx/sites-available/taskmarketing`):
-
+### 2. Paste the Reverse Proxy Config
+Paste the following exact configuration into the nano editor:
 ```nginx
 server {
     listen 80;
@@ -115,17 +144,64 @@ server {
     }
 }
 ```
+Save and exit (`CTRL + X`, then `Y`, then `Enter`).
 
-Once configured, enable it and install an SSL certificate (HTTPS is required for Google Login):
+### 3. Enable the Site in Nginx
 ```bash
-# Enable the site
 sudo ln -s /etc/nginx/sites-available/taskmarketing /etc/nginx/sites-enabled/
-# Verify syntax
+```
+
+### 4. Test and Restart Nginx
+```bash
 sudo nginx -t
-# Restart Nginx
 sudo systemctl restart nginx
-# Install free SSL via Certbot (highly recommended)
-sudo apt install certbot python3-certbot-nginx
+```
+
+### 5. Install Certbot and Generate requested SSL
+Certbot will automatically fetch a free Let's Encrypt SSL certificate and modify the Nginx config to forcefully redirect HTTP traffic to HTTPS securely.
+```bash
+sudo apt install certbot python3-certbot-nginx -y
 sudo certbot --nginx -d taskmarketing.rsys.systems
 ```
-After completing these steps, your web application will be fully live and functional on your company's server!
+Follow the screen prompts (enter an IT email address, accept terms, etc.).
+
+---
+
+## 🔐 Phase 6: Google Login Authorization (CRITICAL)
+
+Because the application is now living on `taskmarketing.rsys.systems`, Google's Firebase security will automatically block any login popup attempts. **You must whitelist this domain in the Firebase console.**
+
+1. Log into your Google Cloud / Firebase Console.
+2. Select the existing project: `gen-lang-client-0162825138` (or the one matching `firebase-applet-config.json`).
+3. On the left sidebar, click **Authentication**, then change to the **Settings** tab.
+4. From the horizontal menu (or left sidebar depending on UI version), click **Authorized domains**.
+5. Click **Add Domain** and explicitly enter: `taskmarketing.rsys.systems`
+6. Click **Add**.
+
+*(Note: The `firebase-applet-config.json` inside the repository defines the keys to connect to the database. These are safe to be public as database security is enforced completely mathematically by the backend Security Rules via Firestore, not by keeping the connection string hidden).*
+
+---
+
+## 🛠 Useful IT Commands for Maintenance
+
+**To view live app logs (useful for debugging errors):**
+```bash
+pm2 logs taskmarketing-app
+```
+
+**Restart the app after pushing git updates:**
+```bash
+cd /var/www/taskmarketing
+git pull
+npm install
+npm run build
+pm2 restart taskmarketing-app
+```
+
+**Verify Firewall Status (if site isn't loading):**
+```bash
+sudo ufw status
+# If active, make sure you allow Nginx HTTP/HTTPS:
+# sudo ufw allow 'Nginx Full'
+# sudo ufw allow OpenSSH
+```
