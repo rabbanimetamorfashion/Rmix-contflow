@@ -85,23 +85,25 @@ Because you are moving the application to your company's custom domain name or I
 2. Select the Firebase project associated with this app (`gen-lang-client-0162825138`).
 3. On the left sidebar, click **Authentication**, then select the **Settings** tab.
 4. From the left sidebar of the settings area, click on **Authorized domains**.
-5. Click **Add Domain** and enter the exact domain name of your company hosting (e.g., `app.yourcompany.com` or `198.51.100.0`).
+5. Click **Add Domain** and enter your exact production domain: `taskmarketing.rsys.systems`.
 6. Save the settings. Login popups will now work normally on your company server.
 
 *(Note: Your `firebase-applet-config.json` doesn't need to be hidden or secured via environment variables; it is completely safe to be public on the client. Security is enforced entirely by the Firestore Security Rules we deployed).*
 
 ---
 
-## 🌐 Step 6: Reverse Proxy Configuration (Nginx Example)
+## 🌐 Step 6: Web Server & DNS Configuration (Nginx Example)
 
-By default, the Express server listens on port `3000`. To serve the application over standard web ports (80 for HTTP, 443 for HTTPS) using your custom domain, configure a reverse proxy. 
+To serve the app on `taskmarketing.rsys.systems`, you need to:
+1. Ensure your **DNS A-Record** for `taskmarketing.rsys.systems` points to your server's IP address.
+2. Set up a reverse proxy. By default, the Express server listens on port `3000`. 
 
-Here is a sample **Nginx** configuration block (`/etc/nginx/sites-available/contentflow`):
+Here is the exact **Nginx** configuration block (`/etc/nginx/sites-available/taskmarketing`):
 
 ```nginx
 server {
     listen 80;
-    server_name app.yourcompany.com;
+    server_name taskmarketing.rsys.systems;
 
     location / {
         proxy_pass http://localhost:3000;
@@ -114,13 +116,16 @@ server {
 }
 ```
 
-Once configured:
+Once configured, enable it and install an SSL certificate (HTTPS is required for Google Login):
 ```bash
 # Enable the site
-sudo ln -s /etc/nginx/sites-available/contentflow /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/taskmarketing /etc/nginx/sites-enabled/
 # Verify syntax
 sudo nginx -t
 # Restart Nginx
 sudo systemctl restart nginx
+# Install free SSL via Certbot (highly recommended)
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d taskmarketing.rsys.systems
 ```
 After completing these steps, your web application will be fully live and functional on your company's server!
