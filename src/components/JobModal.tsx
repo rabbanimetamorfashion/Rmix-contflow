@@ -253,7 +253,7 @@ export function JobModal({ job, onClose, productionUsers, currentUser, allUsers 
               <div className="bg-slate-50 border border-slate-200 rounded p-4 grid grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
                 <div><p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Job Type</p><p className="font-bold text-slate-800 capitalize">{job.jobType.replace('_', ' ')}</p></div>
                 <div><p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Quantity</p><p className="font-bold text-slate-800">{job.quantity}</p></div>
-                <div><p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Brand</p><p className="font-bold text-slate-800">{job.brand}</p></div>
+                <div><p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Brand</p><p className="font-bold text-slate-800">{Array.isArray(job.brand) ? job.brand.join(', ') : job.brand}</p></div>
                 <div><p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Campaign</p><p className="font-bold text-slate-800">{job.campaign}</p></div>
                 {job.requestedDeadline && (
                   <div className="col-span-2"><p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Client Requested Deadline</p><p className="font-bold text-amber-600">{format(job.requestedDeadline, 'MMM d, yyyy')}</p></div>

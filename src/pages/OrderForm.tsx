@@ -64,7 +64,7 @@ export function OrderForm() {
 
   const [jobType, setJobType] = useState(JOB_TYPES[0].id);
   const [quantity, setQuantity] = useState<number>(1);
-  const [brand, setBrand] = useState(BRANDS[0]);
+  const [brands, setBrands] = useState<string[]>([BRANDS[0]]);
   const [campaign, setCampaign] = useState('');
   const [description, setDescription] = useState('');
   const [scriptLink, setScriptLink] = useState('');
@@ -80,8 +80,14 @@ export function OrderForm() {
     
     setSaving(true);
     try {
+      if (brands.length === 0) {
+        alert("Please select at least one brand.");
+        setSaving(false);
+        return;
+      }
+
       const typeLabel = JOB_TYPES.find(t => t.id === jobType)?.label || jobType;
-      const title = `${typeLabel} - ${brand} (${campaign})`;
+      const title = `${typeLabel} - ${brands.join(', ')} (${campaign})`;
 
       const newJob: Job = {
         title,
@@ -92,7 +98,7 @@ export function OrderForm() {
         creatorId: user.uid,
         jobType,
         quantity,
-        brand,
+        brand: brands,
         campaign,
         requestedDeadline: new Date(requestedDeadline).getTime(),
         ...(scriptLink && { scriptLink }),
@@ -178,22 +184,6 @@ export function OrderForm() {
                 className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-md bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
               />
             </div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2">Brand</label>
-              <select
-                required
-                value={brand}
-                onChange={e => setBrand(e.target.value)}
-                className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-md bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                {BRANDS.map(b => (
-                  <option key={b} value={b}>{b}</option>
-                ))}
-              </select>
-            </div>
 
             <div>
               <label className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2">Campaign Name</label>
@@ -216,6 +206,28 @@ export function OrderForm() {
                 placeholder="https://docs.google.com/..."
                 className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-md bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
               />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="h-full flex flex-col">
+              <label className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2">Brands (Select multiple if collab)</label>
+              <div className="flex flex-col gap-2 border border-slate-200 p-3 rounded-md bg-slate-50 flex-1 overflow-y-auto min-h-[16rem]">
+                {BRANDS.map(b => (
+                  <label key={b} className="flex items-center gap-2 cursor-pointer p-1.5 hover:bg-slate-100 rounded">
+                    <input
+                      type="checkbox"
+                      className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer shrink-0"
+                      checked={brands.includes(b)}
+                      onChange={e => {
+                        if (e.target.checked) setBrands(prev => [...prev, b]);
+                        else setBrands(prev => prev.filter(brand => brand !== b));
+                      }}
+                    />
+                    <span className="text-sm text-slate-700">{b}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
         </div>

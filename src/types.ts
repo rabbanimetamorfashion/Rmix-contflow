@@ -30,7 +30,7 @@ export interface Job {
   creatorId?: string;
   jobType?: string;
   quantity?: number;
-  brand?: string;
+  brand?: string | string[];
   campaign?: string;
   requestedDeadline?: number;
   scriptLink?: string;

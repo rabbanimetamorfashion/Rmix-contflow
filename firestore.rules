@@ -71,7 +71,7 @@ service cloud.firestore {
       let isOptionalsValid = (!('creatorId' in data) || (data.creatorId is string && data.creatorId.size() <= 128)) &&
              (!('jobType' in data) || (data.jobType is string && data.jobType.size() <= 100)) &&
              (!('quantity' in data) || data.quantity is number) &&
-             (!('brand' in data) || (data.brand is string && data.brand.size() <= 100)) &&
+             (!('brand' in data) || (data.brand is string && data.brand.size() <= 100) || (data.brand is list && data.brand.size() <= 20)) &&
              (!('campaign' in data) || (data.campaign is string && data.campaign.size() <= 200)) &&
              (!('requestedDeadline' in data) || data.requestedDeadline is number) &&
              (!('scriptLink' in data) || (data.scriptLink is string && data.scriptLink.size() <= 1000)) &&

@@ -138,7 +138,7 @@ export function JobBoard() {
 
   let boardJobs = filteredByDate;
   if (selectedBrand !== 'All Brands') {
-    boardJobs = boardJobs.filter(j => j.brand === selectedBrand);
+    boardJobs = boardJobs.filter(j => Array.isArray(j.brand) ? j.brand.includes(selectedBrand) : j.brand === selectedBrand);
   }
 
   if (showMyJobs && user) {

@@ -83,7 +83,7 @@ export function Dashboard() {
     }
 
     if (selectedBrand !== 'All Brands') {
-      filtered = filtered.filter(j => j.brand === selectedBrand);
+      filtered = filtered.filter(j => Array.isArray(j.brand) ? j.brand.includes(selectedBrand) : j.brand === selectedBrand);
     }
 
     return filtered;
@@ -121,8 +121,18 @@ export function Dashboard() {
 
   // Group by Brand
   const brandDataObj = filteredJobs.reduce((acc, job) => {
-    const b = job.brand || 'Unbranded';
-    acc[b] = (acc[b] || 0) + 1;
+    if (Array.isArray(job.brand)) {
+      if (job.brand.length === 0) {
+        acc['Unbranded'] = (acc['Unbranded'] || 0) + 1;
+      } else {
+        job.brand.forEach(b => {
+          acc[b] = (acc[b] || 0) + 1;
+        });
+      }
+    } else {
+      const b = job.brand || 'Unbranded';
+      acc[b] = (acc[b] || 0) + 1;
+    }
     return acc;
   }, {} as Record<string, number>);
   const brandData = Object.entries(brandDataObj).map(([name, Total]) => ({ name, Total: Number(Total) })).sort((a,b) => b.Total - a.Total);
