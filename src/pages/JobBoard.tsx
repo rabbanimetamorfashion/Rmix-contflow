@@ -277,7 +277,7 @@ export function JobBoard() {
                 <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span>
                 Finish
               </h2>
-              <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-0.5 rounded-full">{finishedJobs.length}</span>
+              <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-0.5 rounded-full">{finishedJobs.length + postedJobs.length}</span>
             </div>
             <div className="space-y-4 overflow-y-auto max-h-[70vh] lg:max-h-full pb-2">
               {finishedJobs.map(job => (

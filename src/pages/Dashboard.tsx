@@ -94,7 +94,7 @@ export function Dashboard() {
     const open = filteredJobs.filter(j => j.status === 'open').length;
     const assigned = filteredJobs.filter(j => j.status === 'assigned').length;
     const inProgress = filteredJobs.filter(j => j.status === 'in_progress').length;
-    const completed = filteredJobs.filter(j => j.status === 'completed').length;
+    const completed = filteredJobs.filter(j => j.status === 'completed' || j.status === 'posted').length;
     
     // Total checks or progress across all
     const totalProgress = filteredJobs.reduce((acc, j) => {
@@ -276,7 +276,7 @@ export function Dashboard() {
               {/* Note: This is an aggregation of the filteredJobs for active/completed */}
               {Array.from(new Set(allJobs.flatMap(j => j.assigneeIds || [j.assigneeId]).filter(Boolean))).map(uid => {
                 const assignedFiltered = filteredJobs.filter(j => j.assigneeId === uid || j.assigneeIds?.includes(uid));
-                const completedCount = assignedFiltered.filter(j => j.status === 'completed').length;
+                const completedCount = assignedFiltered.filter(j => j.status === 'completed' || j.status === 'posted').length;
                 const totalAssignedInPeriod = assignedFiltered.length;
                 const completionRate = totalAssignedInPeriod > 0 ? Math.round((completedCount / totalAssignedInPeriod) * 100) : 0;
                 

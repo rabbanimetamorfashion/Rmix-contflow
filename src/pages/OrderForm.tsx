@@ -56,7 +56,7 @@ const JOB_TYPES = [
   { id: 'motion_graphic', label: 'Motion Graphic' },
   { id: 'twibbon', label: 'Twibbon' },
   { id: 'marketplace_produk_photo', label: 'marketplace produk photo' },
-];
+].sort((a, b) => a.label.localeCompare(b.label));
 
 export function OrderForm() {
   const { user } = useAuth();

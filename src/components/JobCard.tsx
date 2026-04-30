@@ -18,6 +18,7 @@ interface JobCardProps {
 export function JobCard({ job, onClick, users = [] }: JobCardProps) {
   const { user } = useAuth();
   const isMasterAdmin = user?.role === 'master_admin';
+  const isEditingAllowed = user?.role === 'admin' || user?.role === 'master_admin';
   const isAssignee = user?.uid && (job.assigneeId === user.uid || job.assigneeIds?.includes(user.uid));
 
   const getStatusColor = (status: Job['status']) => {
@@ -86,7 +87,7 @@ export function JobCard({ job, onClick, users = [] }: JobCardProps) {
 
   const handleStatusChange = async (e: React.MouseEvent, newStatus: Job['status']) => {
     e.stopPropagation();
-    if (!job?.id || !isAssignee) return;
+    if (!job?.id || (!isAssignee && !isEditingAllowed)) return;
 
     if (newStatus === 'completed' && !job.gdriveLink) {
       alert("Please attach a Google Drive Output link inside the card before finishing this job.");
@@ -233,9 +234,9 @@ export function JobCard({ job, onClick, users = [] }: JobCardProps) {
         </div>
 
         {/* Status Action Buttons for Assignees */}
-        {isAssignee && (
+        {(isAssignee || (isEditingAllowed && (job.status === 'completed' || job.status === 'posted'))) && (
           <div className="mt-4 pt-3 border-t border-slate-100 flex gap-2">
-            {job.status === 'assigned' && (
+            {isAssignee && job.status === 'assigned' && (
               <button 
                 onClick={(e) => handleStatusChange(e, 'in_progress')}
                 className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold uppercase tracking-wider rounded transition-colors shadow-sm"
@@ -243,7 +244,7 @@ export function JobCard({ job, onClick, users = [] }: JobCardProps) {
                 Start Progress <ArrowRight className="w-3 h-3" />
               </button>
             )}
-            {job.status === 'in_progress' && (
+            {isAssignee && job.status === 'in_progress' && (
               <button 
                 onClick={(e) => handleStatusChange(e, 'completed')}
                 className={cn("w-full flex items-center justify-center gap-1.5 py-1.5 text-white text-[10px] font-bold uppercase tracking-wider rounded transition-colors shadow-sm", job.gdriveLink ? "bg-emerald-600 hover:bg-emerald-700" : "bg-emerald-400 opacity-80 cursor-not-allowed")}
@@ -252,13 +253,31 @@ export function JobCard({ job, onClick, users = [] }: JobCardProps) {
                 <CheckCircle2 className="w-3 h-3" /> Finish Job
               </button>
             )}
-            {job.status === 'completed' && (
+            {isAssignee && job.status === 'completed' && (
               <button 
                 onClick={(e) => handleStatusChange(e, 'in_progress')}
                 className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-700 text-[10px] font-bold uppercase tracking-wider rounded transition-colors"
                 title="Move back to On Progress for revision"
               >
                 <RotateCcw className="w-3 h-3" /> Needs Revision
+              </button>
+            )}
+            {isEditingAllowed && job.status === 'completed' && (
+              <button 
+                onClick={(e) => handleStatusChange(e, 'posted')}
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-bold uppercase tracking-wider rounded transition-colors shadow-sm"
+                title="Mark as Posted"
+              >
+                <CheckCircle2 className="w-3 h-3" /> Mark as Posted
+              </button>
+            )}
+            {isEditingAllowed && job.status === 'posted' && (
+              <button 
+                onClick={(e) => handleStatusChange(e, 'completed')}
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-700 text-[10px] font-bold uppercase tracking-wider rounded transition-colors"
+                title="Return to Finished"
+              >
+                <RotateCcw className="w-3 h-3" /> Undo Posted
               </button>
             )}
           </div>

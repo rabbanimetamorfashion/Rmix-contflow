@@ -326,7 +326,7 @@ export function JobModal({ job, onClose, productionUsers, currentUser, allUsers 
                       <option value="assigned">Assigned</option>
                       <option value="in_progress">In Progress</option>
                       <option value="completed">Completed</option>
-                      {isEditingAllowed && <option value="posted">Posted</option>}
+                      {isEditingAllowed && (job.status === 'completed' || job.status === 'posted' || status === 'completed' || status === 'posted') && <option value="posted">Posted</option>}
                     </select>
                   </div>
                   <div>
