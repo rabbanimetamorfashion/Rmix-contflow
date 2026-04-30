@@ -17,6 +17,7 @@ const JOB_TYPES = [
   { id: 'blash_3_4', label: 'Blash 3;4' },
   { id: 'blash_15_9', label: 'Blash 15;9' },
   { id: 'katalog', label: 'Katalog' },
+  { id: 'x_banner', label: 'X Banner' },
   { id: 'video_reels_organik', label: 'Video Reels Organik' },
   { id: 'video_youtube', label: 'Video Youtube' },
   { id: 'video_ads', label: 'Video Ads' },
