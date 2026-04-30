@@ -234,51 +234,89 @@ export function JobCard({ job, onClick, users = [] }: JobCardProps) {
         </div>
 
         {/* Status Action Buttons for Assignees */}
-        {(isAssignee || (isEditingAllowed && (job.status === 'completed' || job.status === 'posted'))) && (
-          <div className="mt-4 pt-3 border-t border-slate-100 flex gap-2">
-            {isAssignee && job.status === 'assigned' && (
-              <button 
-                onClick={(e) => handleStatusChange(e, 'in_progress')}
-                className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold uppercase tracking-wider rounded transition-colors shadow-sm"
-              >
-                Start Progress <ArrowRight className="w-3 h-3" />
-              </button>
-            )}
-            {isAssignee && job.status === 'in_progress' && (
-              <button 
-                onClick={(e) => handleStatusChange(e, 'completed')}
-                className={cn("w-full flex items-center justify-center gap-1.5 py-1.5 text-white text-[10px] font-bold uppercase tracking-wider rounded transition-colors shadow-sm", job.gdriveLink ? "bg-emerald-600 hover:bg-emerald-700" : "bg-emerald-400 opacity-80 cursor-not-allowed")}
-                title={!job.gdriveLink ? "Drive link required to finish" : ""}
-              >
-                <CheckCircle2 className="w-3 h-3" /> Finish Job
-              </button>
-            )}
-            {isAssignee && job.status === 'completed' && (
-              <button 
-                onClick={(e) => handleStatusChange(e, 'in_progress')}
-                className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-700 text-[10px] font-bold uppercase tracking-wider rounded transition-colors"
-                title="Move back to On Progress for revision"
-              >
-                <RotateCcw className="w-3 h-3" /> Needs Revision
-              </button>
-            )}
-            {isEditingAllowed && job.status === 'completed' && (
-              <button 
-                onClick={(e) => handleStatusChange(e, 'posted')}
-                className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-bold uppercase tracking-wider rounded transition-colors shadow-sm"
-                title="Mark as Posted"
-              >
-                <CheckCircle2 className="w-3 h-3" /> Mark as Posted
-              </button>
-            )}
-            {isEditingAllowed && job.status === 'posted' && (
-              <button 
-                onClick={(e) => handleStatusChange(e, 'completed')}
-                className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-700 text-[10px] font-bold uppercase tracking-wider rounded transition-colors"
-                title="Return to Finished"
-              >
-                <RotateCcw className="w-3 h-3" /> Undo Posted
-              </button>
+        {(isAssignee || isMasterAdmin || (isEditingAllowed && (job.status === 'completed' || job.status === 'posted'))) && (
+          <div className="mt-4 pt-3 border-t border-slate-100 flex flex-col gap-2">
+            <div className="flex gap-2">
+              {isAssignee && job.status === 'assigned' && (
+                <button 
+                  onClick={(e) => {
+                    if (!job.deadline) {
+                      e.stopPropagation();
+                      alert("Please open the job card and set a deadline before starting progress.");
+                      return;
+                    }
+                    handleStatusChange(e, 'in_progress');
+                  }}
+                  className={cn("w-full flex items-center justify-center gap-1.5 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded transition-colors shadow-sm", job.deadline ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-indigo-300 text-white cursor-not-allowed")}
+                  title={!job.deadline ? "Deadline required to start" : ""}
+                >
+                  Start Progress <ArrowRight className="w-3 h-3" />
+                </button>
+              )}
+              {isAssignee && job.status === 'in_progress' && (
+                <button 
+                  onClick={(e) => handleStatusChange(e, 'completed')}
+                  className={cn("w-full flex items-center justify-center gap-1.5 py-1.5 text-white text-[10px] font-bold uppercase tracking-wider rounded transition-colors shadow-sm", job.gdriveLink ? "bg-emerald-600 hover:bg-emerald-700" : "bg-emerald-400 opacity-80 cursor-not-allowed")}
+                  title={!job.gdriveLink ? "Drive link required to finish" : ""}
+                >
+                  <CheckCircle2 className="w-3 h-3" /> Finish Job
+                </button>
+              )}
+              {isAssignee && job.status === 'completed' && (
+                <button 
+                  onClick={(e) => handleStatusChange(e, 'in_progress')}
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-700 text-[10px] font-bold uppercase tracking-wider rounded transition-colors"
+                  title="Move back to On Progress for revision"
+                >
+                  <RotateCcw className="w-3 h-3" /> Needs Revision
+                </button>
+              )}
+              {isEditingAllowed && job.status === 'completed' && (
+                <button 
+                  onClick={(e) => handleStatusChange(e, 'posted')}
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-bold uppercase tracking-wider rounded transition-colors shadow-sm"
+                  title="Mark as Posted"
+                >
+                  <CheckCircle2 className="w-3 h-3" /> Mark as Posted
+                </button>
+              )}
+              {isEditingAllowed && job.status === 'posted' && (
+                <button 
+                  onClick={(e) => handleStatusChange(e, 'completed')}
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-700 text-[10px] font-bold uppercase tracking-wider rounded transition-colors"
+                  title="Return to Finished"
+                >
+                  <RotateCcw className="w-3 h-3" /> Undo Posted
+                </button>
+              )}
+            </div>
+            {isMasterAdmin && (
+              <div className="flex gap-2">
+                 <button 
+                   onClick={(e) => {
+                     const statusOrder: Job['status'][] = ['open', 'assigned', 'in_progress', 'completed', 'posted'];
+                     const currentIndex = statusOrder.indexOf(job.status);
+                     if (currentIndex > 0) handleStatusChange(e, statusOrder[currentIndex - 1]);
+                   }}
+                   disabled={job.status === 'open'}
+                   className="flex-1 py-1 text-slate-500 bg-slate-50 hover:bg-slate-100 hover:text-slate-700 border border-slate-200 text-[9px] font-bold uppercase tracking-wider rounded transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                   title="Force move backward"
+                 >
+                   &larr; Back
+                 </button>
+                 <button 
+                   onClick={(e) => {
+                     const statusOrder: Job['status'][] = ['open', 'assigned', 'in_progress', 'completed', 'posted'];
+                     const currentIndex = statusOrder.indexOf(job.status);
+                     if (currentIndex < statusOrder.length - 1) handleStatusChange(e, statusOrder[currentIndex + 1]);
+                   }}
+                   disabled={job.status === 'posted'}
+                   className="flex-1 py-1 text-slate-500 bg-slate-50 hover:bg-slate-100 hover:text-slate-700 border border-slate-200 text-[9px] font-bold uppercase tracking-wider rounded transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                   title="Force move forward"
+                 >
+                   Forward &rarr;
+                 </button>
+              </div>
             )}
           </div>
         )}

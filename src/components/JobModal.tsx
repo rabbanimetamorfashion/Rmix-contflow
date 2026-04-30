@@ -203,7 +203,9 @@ export function JobModal({ job, onClose, productionUsers, currentUser, allUsers 
              updates.progress = progress;
              updates.gdriveLink = gdriveLink;
              updates.checklists = checklists;
-             if (!hasExistingDeadline && deadline) updates.deadline = new Date(deadline).getTime();
+             if ((!hasExistingDeadline || isMasterAdmin) && deadline) {
+               updates.deadline = new Date(deadline).getTime();
+             }
           }
           updates.updatedAt = Date.now();
           await updateDoc(docRef, updates);
@@ -404,9 +406,9 @@ export function JobModal({ job, onClose, productionUsers, currentUser, allUsers 
                     <label className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Deadline</label>
                     <div className="relative">
                       <Calendar className="absolute left-3 top-2h-4 w-4 text-slate-400 h-full" />
-                      <input type="date" required min={job?.requestedDeadline ? format(job.requestedDeadline, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')} disabled={!isAssignee || hasExistingDeadline} value={deadline} onChange={e => setDeadline(e.target.value)} className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm disabled:bg-slate-100 text-sm"/>
+                      <input type="date" required min={job?.requestedDeadline ? format(job.requestedDeadline, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')} disabled={!(isMasterAdmin || (isAssignee && !hasExistingDeadline))} value={deadline} onChange={e => setDeadline(e.target.value)} className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm disabled:bg-slate-100 text-sm"/>
                     </div>
-                    {isAssignee && !hasExistingDeadline && <p className="text-[10px] text-amber-600 mt-1 font-bold">LOCKED ONCE SET</p>}
+                    {isAssignee && !hasExistingDeadline && !isMasterAdmin && <p className="text-[10px] text-amber-600 mt-1 font-bold">LOCKED ONCE SET</p>}
                   </div>
                 </div>
 
