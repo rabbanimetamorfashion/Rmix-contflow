@@ -8,12 +8,22 @@ import { format } from 'date-fns';
 import { X, Link as LinkIcon, Calendar, MessageSquare, Plus, Trash2, CheckCircle2, Circle } from 'lucide-react';
 import { cn } from '../lib/utils';
 
+import { BRANDS } from '../constants';
+import { JOB_TYPES } from '../pages/OrderForm';
+
 export function JobModal({ job, onClose, productionUsers, currentUser, allUsers = [] }: { job?: Job; onClose: () => void; productionUsers: AppUser[]; currentUser: AppUser | null; allUsers?: AppUser[] }) {
   const isNew = !job;
   const isEditingAllowed = currentUser?.role === 'admin' || currentUser?.role === 'master_admin';
   const isMasterAdmin = currentUser?.role === 'master_admin';
   const isAssignee = currentUser?.uid && (job?.assigneeId === currentUser.uid || job?.assigneeIds?.includes(currentUser.uid));
   
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [jobType, setJobType] = useState(job?.jobType || JOB_TYPES[0].id);
+  const [quantity, setQuantity] = useState<number>(job?.quantity || 1);
+  const [brands, setBrands] = useState<string[]>(Array.isArray(job?.brand) ? job.brand : (job?.brand ? [job.brand] : [BRANDS[0]]));
+  const [campaign, setCampaign] = useState(job?.campaign || '');
+  const [scriptLink, setScriptLink] = useState(job?.scriptLink || '');
+
   const [title, setTitle] = useState(job?.title || '');
   const [description, setDescription] = useState(job?.description || '');
   
@@ -158,6 +168,15 @@ export function JobModal({ job, onClose, productionUsers, currentUser, allUsers 
         if (isEditingAllowed) {
           const updates: Partial<Job> = { title, description };
           
+          if (isMasterAdmin) {
+            updates.jobType = jobType;
+            updates.quantity = quantity;
+            updates.brand = brands;
+            updates.campaign = campaign;
+            updates.scriptLink = scriptLink;
+            // update title if auto-generated? 
+          }
+          
           const isAssigneesChanged = JSON.stringify(assigneeIds.sort()) !== JSON.stringify(currentAssigneeIds.sort());
           if (isAssigneesChanged) {
             updates.assigneeIds = assigneeIds;
@@ -250,16 +269,68 @@ export function JobModal({ job, onClose, productionUsers, currentUser, allUsers 
             )}
             
             {!isNew && job?.jobType && (
-              <div className="bg-slate-50 border border-slate-200 rounded p-4 grid grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-                <div><p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Job Type</p><p className="font-bold text-slate-800 capitalize">{job.jobType.replace('_', ' ')}</p></div>
-                <div><p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Quantity</p><p className="font-bold text-slate-800">{job.quantity}</p></div>
-                <div><p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Brand</p><p className="font-bold text-slate-800">{Array.isArray(job.brand) ? job.brand.join(', ') : job.brand}</p></div>
-                <div><p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Campaign</p><p className="font-bold text-slate-800">{job.campaign}</p></div>
-                {job.requestedDeadline && (
-                  <div className="col-span-2"><p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Client Requested Deadline</p><p className="font-bold text-amber-600">{format(job.requestedDeadline, 'MMM d, yyyy')}</p></div>
-                )}
-                {job.scriptLink && (
-                  <div className="col-span-2"><p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Docs / Script Link</p><a href={job.scriptLink} target="_blank" rel="noopener noreferrer" className="font-bold text-indigo-600 hover:underline line-clamp-1">{job.scriptLink}</a></div>
+              <div className="bg-slate-50 border border-slate-200 rounded p-4 text-xs font-sans">
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="font-bold text-slate-800">Job Specs</h4>
+                  {isMasterAdmin && (
+                    <button 
+                      type="button" 
+                      onClick={(e) => { e.preventDefault(); setIsEditMode(!isEditMode); }} 
+                      className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 transition-colors"
+                    >
+                      {isEditMode ? 'Cancel Edit' : 'Edit Specs'}
+                    </button>
+                  )}
+                </div>
+                
+                {!isEditMode ? (
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div><p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Job Type</p><p className="font-bold text-slate-800 capitalize">{job.jobType.replace(/_/g, ' ')}</p></div>
+                    <div><p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Quantity</p><p className="font-bold text-slate-800">{job.quantity}</p></div>
+                    <div className="col-span-2"><p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Brand</p><p className="font-bold text-slate-800">{Array.isArray(job.brand) ? job.brand.join(', ') : job.brand}</p></div>
+                    <div className="col-span-2"><p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Campaign</p><p className="font-bold text-slate-800">{job.campaign}</p></div>
+                    {job.requestedDeadline && (
+                      <div className="col-span-2"><p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Client Requested Deadline</p><p className="font-bold text-amber-600">{format(job.requestedDeadline, 'MMM d, yyyy')}</p></div>
+                    )}
+                    {job.scriptLink && (
+                      <div className="col-span-4"><p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Docs / Script Link</p><a href={job.scriptLink} target="_blank" rel="noopener noreferrer" className="font-bold text-indigo-600 hover:underline line-clamp-1">{job.scriptLink}</a></div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Job Type</label>
+                      <select value={jobType} onChange={e => setJobType(e.target.value)} className="w-full text-sm px-2 py-1.5 border border-slate-200 rounded bg-white">
+                        {JOB_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Quantity</label>
+                      <input type="number" min="1" value={quantity} onChange={e => setQuantity(Number(e.target.value))} className="w-full text-sm px-2 py-1.5 border border-slate-200 rounded bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Campaign</label>
+                      <input type="text" value={campaign} onChange={e => setCampaign(e.target.value)} className="w-full text-sm px-2 py-1.5 border border-slate-200 rounded bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Script Link</label>
+                      <input type="text" value={scriptLink} onChange={e => setScriptLink(e.target.value)} className="w-full text-sm px-2 py-1.5 border border-slate-200 rounded bg-white" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Brands</label>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-2 border border-slate-200 rounded bg-white max-h-32 overflow-y-auto">
+                        {BRANDS.map(b => (
+                          <label key={b} className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked={brands.includes(b)} onChange={e => {
+                              if (e.target.checked) setBrands(prev => [...prev, b]);
+                              else setBrands(prev => prev.filter(brand => brand !== b));
+                            }} className="rounded text-indigo-600 focus:ring-indigo-500" />
+                            <span className="text-[11px] text-slate-700">{b}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             )}

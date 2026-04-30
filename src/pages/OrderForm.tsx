@@ -9,7 +9,7 @@ import { Job } from '../types';
 import { ShoppingCart } from 'lucide-react';
 import { BRANDS } from '../constants';
 
-const JOB_TYPES = [
+export const JOB_TYPES = [
   { id: 'voucher', label: 'Voucher' },
   { id: 'poster_a3_a4', label: 'Poster A3/A4' },
   { id: 'flyer_a5', label: 'Flyer A5' },
