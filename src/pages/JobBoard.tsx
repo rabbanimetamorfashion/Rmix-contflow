@@ -24,6 +24,8 @@ export function JobBoard() {
   const [timeframe, setTimeframe] = useState<'all' | 'this_month' | 'last_month' | 'custom'>('this_month');
   const [customStart, setCustomStart] = useState<string>('');
   const [customEnd, setCustomEnd] = useState<string>('');
+  const [sortBy, setSortBy] = useState<'newest' | 'requestedDeadline' | 'productionDeadline' | 'jobType' | 'alpha'>('newest');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     // Listen to jobs
@@ -145,10 +147,50 @@ export function JobBoard() {
     boardJobs = boardJobs.filter(j => j.assigneeId === user.uid || j.assigneeIds?.includes(user.uid));
   }
 
-  const todoJobs = boardJobs.filter(j => j.status === 'open' || j.status === 'assigned');
-  const progressJobs = boardJobs.filter(j => j.status === 'in_progress');
-  const finishedJobs = boardJobs.filter(j => j.status === 'completed');
-  const postedJobs = boardJobs.filter(j => j.status === 'posted');
+  let sortedJobs = [...boardJobs];
+  
+  sortedJobs.sort((a, b) => {
+    let result = 0;
+    if (sortBy === 'newest') {
+      result = b.createdAt - a.createdAt; // Default desc: newest first
+    } else if (sortBy === 'requestedDeadline') {
+      const aVal = a.requestedDeadline || Number.MAX_SAFE_INTEGER;
+      const bVal = b.requestedDeadline || Number.MAX_SAFE_INTEGER;
+      if (aVal !== bVal) {
+        result = aVal - bVal;
+      } else {
+        const aType = a.jobType || '';
+        const bType = b.jobType || '';
+        if (aType !== bType) result = aType.localeCompare(bType);
+        else result = (a.title || '').localeCompare(b.title || '');
+      }
+    } else if (sortBy === 'productionDeadline') {
+      const aVal = a.deadline || Number.MAX_SAFE_INTEGER;
+      const bVal = b.deadline || Number.MAX_SAFE_INTEGER;
+      if (aVal !== bVal) {
+        result = aVal - bVal;
+      } else {
+        const aType = a.jobType || '';
+        const bType = b.jobType || '';
+        if (aType !== bType) result = aType.localeCompare(bType);
+        else result = (a.title || '').localeCompare(b.title || '');
+      }
+    } else if (sortBy === 'jobType') {
+      const aType = a.jobType || '';
+      const bType = b.jobType || '';
+      if (aType !== bType) result = aType.localeCompare(bType);
+      else result = (a.title || '').localeCompare(b.title || '');
+    } else if (sortBy === 'alpha') {
+      result = (a.title || '').localeCompare(b.title || '');
+    }
+    
+    return sortOrder === 'asc' ? result : -result;
+  });
+
+  const todoJobs = sortedJobs.filter(j => j.status === 'open' || j.status === 'assigned');
+  const progressJobs = sortedJobs.filter(j => j.status === 'in_progress');
+  const finishedJobs = sortedJobs.filter(j => j.status === 'completed');
+  const postedJobs = sortedJobs.filter(j => j.status === 'posted');
 
   return (
     <div className="max-w-full mx-auto flex flex-col h-full space-y-6 text-slate-800">
@@ -206,6 +248,30 @@ export function JobBoard() {
                 <option key={b} value={b}>{b}</option>
               ))}
             </select>
+          </div>
+
+          <div className="relative flex-1 sm:flex-none flex items-center gap-2">
+            <div className="relative flex-1 sm:w-48">
+              <span className="absolute -top-2 left-2 bg-[#F8FAFC] px-1 text-[9px] font-bold uppercase tracking-widest text-slate-400">Sort By</span>
+              <select 
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="w-full border-slate-300 rounded-md text-sm pl-3 pr-8 h-10 border shadow-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white font-bold text-slate-800"
+              >
+                <option value="newest">Created Date</option>
+                <option value="requestedDeadline">Req Deadline</option>
+                <option value="productionDeadline">Prod Deadline</option>
+                <option value="jobType">Job Type</option>
+                <option value="alpha">Alphabetical</option>
+              </select>
+            </div>
+            
+            <button
+              onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+              className="h-10 px-3 border border-slate-300 rounded-md shadow-sm bg-white hover:bg-slate-50 text-slate-600 font-bold text-xs uppercase tracking-wider flex items-center gap-1"
+            >
+              {sortOrder === 'asc' ? 'Asc \u2191' : 'Desc \u2193'}
+            </button>
           </div>
           
           {user?.role === 'master_admin' && (
