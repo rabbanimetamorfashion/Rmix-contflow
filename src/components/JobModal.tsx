@@ -165,9 +165,9 @@ export function JobModal({ job, onClose, productionUsers, currentUser, allUsers 
         const docRef = doc(db, 'jobs', job.id!);
         const currentAssigneeIds = job.assigneeIds || (job.assigneeId ? [job.assigneeId] : []);
         
+        let updates: Partial<Job> = { title, description, updatedAt: Date.now() };
+
         if (isEditingAllowed) {
-          const updates: Partial<Job> = { title, description };
-          
           if (isMasterAdmin) {
             updates.jobType = jobType;
             updates.quantity = quantity;
@@ -207,11 +207,16 @@ export function JobModal({ job, onClose, productionUsers, currentUser, allUsers 
                updates.deadline = new Date(deadline).getTime();
              }
           }
-          updates.updatedAt = Date.now();
           await updateDoc(docRef, updates);
         } else if (isAssignee) {
-          const updates: Partial<Job> = { status, progress, gdriveLink, checklists, updatedAt: Date.now() };
+          updates.status = status;
+          updates.progress = progress;
+          updates.gdriveLink = gdriveLink;
+          updates.checklists = checklists;
           if (!hasExistingDeadline && deadline) updates.deadline = new Date(deadline).getTime();
+          await updateDoc(docRef, updates);
+        } else {
+          // Normal user can only update title and description
           await updateDoc(docRef, updates);
         }
       }
@@ -340,11 +345,11 @@ export function JobModal({ job, onClose, productionUsers, currentUser, allUsers 
             <div className="space-y-4">
               <div>
                 <label className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Title</label>
-                <input type="text" required disabled={!isNew && !isEditingAllowed} className="w-full text-sm px-3 py-2 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-500" value={title} onChange={e => setTitle(e.target.value)} placeholder="Title"/>
+                <input type="text" required disabled={isNew && !isEditingAllowed} className="w-full text-sm px-3 py-2 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-500" value={title} onChange={e => setTitle(e.target.value)} placeholder="Title"/>
               </div>
               <div>
                 <label className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Description</label>
-                <textarea required disabled={!isNew && !isEditingAllowed} rows={3} className="w-full text-sm px-3 py-2 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-500" value={description} onChange={e => setDescription(e.target.value)} placeholder="Description"/>
+                <textarea required disabled={isNew && !isEditingAllowed} rows={3} className="w-full text-sm px-3 py-2 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-500" value={description} onChange={e => setDescription(e.target.value)} placeholder="Description"/>
               </div>
 
               {isEditingAllowed && (
@@ -466,7 +471,7 @@ export function JobModal({ job, onClose, productionUsers, currentUser, allUsers 
               <button onClick={handleDelete} type="button" disabled={saving} className="px-4 py-2 text-sm font-bold text-red-600 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition mr-auto">Delete Job</button>
             )}
             <button onClick={onClose} className="px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded hover:bg-slate-100 transition">Close</button>
-            {(isNew ? isEditingAllowed : (isEditingAllowed || isAssignee)) && (
+            {(isNew ? isEditingAllowed : true) && (
               <button form="jobForm" type="submit" disabled={saving} className="px-5 py-2 text-sm font-bold text-white bg-indigo-600 rounded hover:bg-indigo-700 disabled:opacity-50 transition shadow-sm flex items-center">
                 {saving ? 'Saving...' : 'Save All Changes'}
               </button>

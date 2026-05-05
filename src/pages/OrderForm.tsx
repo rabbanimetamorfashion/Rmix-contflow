@@ -64,6 +64,7 @@ export function OrderForm() {
 
   const [jobType, setJobType] = useState(JOB_TYPES[0].id);
   const [quantity, setQuantity] = useState<number>(1);
+  const [jobTitle, setJobTitle] = useState('');
   const [brands, setBrands] = useState<string[]>([BRANDS[0]]);
   const [campaign, setCampaign] = useState('');
   const [description, setDescription] = useState('');
@@ -86,11 +87,16 @@ export function OrderForm() {
         return;
       }
 
+      if (!jobTitle.trim()) {
+        alert("Please provide a Job Title.");
+        setSaving(false);
+        return;
+      }
+
       const typeLabel = JOB_TYPES.find(t => t.id === jobType)?.label || jobType;
-      const title = `${typeLabel} - ${brands.join(', ')} (${campaign})`;
 
       const newJob: Job = {
-        title,
+        title: jobTitle,
         description,
         status: 'open',
         progress: 0,
@@ -112,7 +118,7 @@ export function OrderForm() {
       adminDocs.forEach(docSnap => {
         addDoc(collection(db, 'notifications'), {
           userId: docSnap.id,
-          message: `New Order Request: ${title}`,
+          message: `New Order Request: ${jobTitle}`,
           read: false,
           createdAt: Date.now(),
           type: 'new_order'
@@ -149,6 +155,18 @@ export function OrderForm() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
           <div className="space-y-4">
+            <div>
+              <label className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2">Job Title</label>
+              <input
+                type="text"
+                required
+                value={jobTitle}
+                onChange={e => setJobTitle(e.target.value)}
+                placeholder="ex: Design Poster Ramadhan 2024"
+                className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-md bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+
             <div>
               <label className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2">Job Type</label>
               <select

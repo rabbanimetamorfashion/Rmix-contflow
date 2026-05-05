@@ -138,6 +138,15 @@ export function JobCard({ job, onClick, users = [] }: JobCardProps) {
         <h3 className="font-bold text-slate-800 leading-snug">{job.title}</h3>
         {hasUnread && <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0 mt-1.5 shadow-sm" title="New updates" />}
       </div>
+      
+      {job.jobType && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">{job.jobType.replace(/_/g, ' ')}</span>
+          <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">{Array.isArray(job.brand) ? job.brand.join(', ') : job.brand}</span>
+          <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider line-clamp-1">{job.campaign}</span>
+        </div>
+      )}
+
       <p className="text-xs text-slate-500 line-clamp-2 mb-3 flex-1">{job.description}</p>
       
       {/* Meta Specs: Creator & Dates */}

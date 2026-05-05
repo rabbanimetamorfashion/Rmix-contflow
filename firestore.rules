@@ -98,12 +98,13 @@ service cloud.firestore {
                        
       allow update: if isSignedIn() && isValidJob(incoming()) && (
         isAdminOrMaster() ||
+        (incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'updatedAt'])) ||
         (
           (
             ('assigneeId' in existing() && existing().assigneeId == request.auth.uid) || 
             ('assigneeIds' in existing() && request.auth.uid in existing().assigneeIds)
           ) && 
-          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'progress', 'gdriveLink', 'deadline', 'checklists', 'startedAt', 'finishedAt', 'updatedAt']) &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'status', 'progress', 'gdriveLink', 'deadline', 'checklists', 'startedAt', 'finishedAt', 'updatedAt']) &&
           ( !('deadline' in incoming().diff(existing()).affectedKeys()) || (!('deadline' in existing()) && incoming().deadline is number) )
         )
       );
