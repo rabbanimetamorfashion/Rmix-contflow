@@ -26,6 +26,7 @@ export function JobBoard() {
   const [customEnd, setCustomEnd] = useState<string>('');
   const [sortBy, setSortBy] = useState<'newest' | 'requestedDeadline' | 'productionDeadline' | 'jobType' | 'alpha'>('newest');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [selectedAssignee, setSelectedAssignee] = useState<string>('all');
 
   useEffect(() => {
     // Listen to jobs
@@ -145,6 +146,8 @@ export function JobBoard() {
 
   if (showMyJobs && user) {
     boardJobs = boardJobs.filter(j => j.assigneeId === user.uid || j.assigneeIds?.includes(user.uid));
+  } else if (selectedAssignee !== 'all') {
+    boardJobs = boardJobs.filter(j => j.assigneeId === selectedAssignee || j.assigneeIds?.includes(selectedAssignee));
   }
 
   let sortedJobs = [...boardJobs];
@@ -202,7 +205,7 @@ export function JobBoard() {
           <p className="text-slate-500 text-sm mt-1">Manage and track production workflows by brand.</p>
         </div>
         
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full xl:w-auto">
+        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 w-full xl:w-auto">
           {user?.role === 'production' && (
             <label className="flex items-center space-x-2 text-sm font-bold text-slate-600 cursor-pointer p-2 bg-indigo-50 text-indigo-700 rounded border border-indigo-100 h-10">
               <input 
@@ -213,6 +216,22 @@ export function JobBoard() {
               />
               <span>My Tasks</span>
             </label>
+          )}
+
+          {(user?.role === 'admin' || user?.role === 'master_admin') && (
+            <div className="relative flex-1 sm:flex-none">
+              <span className="absolute -top-2 left-2 bg-[#F8FAFC] px-1 text-[9px] font-bold uppercase tracking-widest text-slate-400">Crew Member</span>
+              <select 
+                value={selectedAssignee}
+                onChange={(e) => setSelectedAssignee(e.target.value)}
+                className="w-full sm:w-48 border-slate-300 rounded-md text-sm pl-3 pr-8 h-10 border shadow-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white font-bold text-slate-800"
+              >
+                <option value="all">All Crew</option>
+                {users.filter(u => u.role === 'production').map(u => (
+                  <option key={u.uid} value={u.uid}>{u.displayName || u.email}</option>
+                ))}
+              </select>
+            </div>
           )}
 
           <div className="relative flex-1 sm:flex-none">
