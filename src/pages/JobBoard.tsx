@@ -5,7 +5,7 @@ import { useAuth, AppUser } from '../contexts/AuthContext';
 import { Job } from '../types';
 import { JobCard } from '../components/JobCard';
 import { JobModal } from '../components/JobModal';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Search } from 'lucide-react';
 import { BRANDS } from '../constants';
 import { motion } from 'motion/react';
 import { useSearchParams } from 'react-router-dom';
@@ -21,12 +21,14 @@ export function JobBoard() {
   
   const [selectedBrand, setSelectedBrand] = useState<string>('All Brands');
   const [showMyJobs, setShowMyJobs] = useState(false);
+  const [showMyOrders, setShowMyOrders] = useState(false);
   const [timeframe, setTimeframe] = useState<'all' | 'this_month' | 'last_month' | 'custom'>('this_month');
   const [customStart, setCustomStart] = useState<string>('');
   const [customEnd, setCustomEnd] = useState<string>('');
   const [sortBy, setSortBy] = useState<'newest' | 'requestedDeadline' | 'productionDeadline' | 'jobType' | 'alpha'>('newest');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedAssignee, setSelectedAssignee] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
     // Listen to jobs
@@ -150,6 +152,28 @@ export function JobBoard() {
     boardJobs = boardJobs.filter(j => j.assigneeId === selectedAssignee || j.assigneeIds?.includes(selectedAssignee));
   }
 
+  if (showMyOrders && user) {
+    boardJobs = boardJobs.filter(j => j.creatorId === user.uid);
+  }
+
+  // Filter by search query (title, description, or associated brand)
+  if (searchQuery.trim()) {
+    const queryLower = searchQuery.toLowerCase().trim();
+    boardJobs = boardJobs.filter(j => {
+      const titleMatch = (j.title || '').toLowerCase().includes(queryLower);
+      const descMatch = (j.description || '').toLowerCase().includes(queryLower);
+      
+      let brandMatch = false;
+      if (Array.isArray(j.brand)) {
+        brandMatch = j.brand.some(b => (b || '').toLowerCase().includes(queryLower));
+      } else if (j.brand) {
+        brandMatch = j.brand.toLowerCase().includes(queryLower);
+      }
+      
+      return titleMatch || descMatch || brandMatch;
+    });
+  }
+
   let sortedJobs = [...boardJobs];
   
   sortedJobs.sort((a, b) => {
@@ -206,6 +230,29 @@ export function JobBoard() {
         </div>
         
         <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 w-full xl:w-auto">
+          <div className="flex-1 sm:flex-none w-full sm:w-64">
+            <div className="relative">
+              <span className="absolute -top-2 left-2 bg-[#F8FAFC] px-1 text-[9px] font-bold uppercase tracking-widest text-slate-400 z-10">Search Jobs</span>
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <input 
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Title, description, brand..."
+                className="w-full border-slate-300 rounded-md text-sm pl-8 pr-8 h-10 border shadow-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white font-bold text-slate-800"
+              />
+              {searchQuery && (
+                <button 
+                  type="button" 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 hover:bg-slate-100 rounded-full w-5 h-5 flex items-center justify-center text-slate-400 hover:text-slate-600 focus:outline-none z-10"
+                >
+                  <span className="text-sm font-bold leading-none">&times;</span>
+                </button>
+              )}
+            </div>
+          </div>
+
           {user?.role === 'production' && (
             <label className="flex items-center space-x-2 text-sm font-bold text-slate-600 cursor-pointer p-2 bg-indigo-50 text-indigo-700 rounded border border-indigo-100 h-10">
               <input 
@@ -292,6 +339,18 @@ export function JobBoard() {
               {sortOrder === 'asc' ? 'Asc \u2191' : 'Desc \u2193'}
             </button>
           </div>
+
+          {user && (
+            <label className="flex items-center space-x-2 text-sm font-bold text-slate-600 cursor-pointer p-2 bg-indigo-50 text-indigo-700 rounded border border-indigo-100 h-10 select-none">
+              <input 
+                type="checkbox" 
+                checked={showMyOrders} 
+                onChange={(e) => setShowMyOrders(e.target.checked)} 
+                className="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500" 
+              />
+              <span>My Orders</span>
+            </label>
+          )}
           
           {user?.role === 'master_admin' && (
             <button
