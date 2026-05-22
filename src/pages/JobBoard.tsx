@@ -5,11 +5,12 @@ import { useAuth, AppUser } from '../contexts/AuthContext';
 import { Job, Board } from '../types';
 import { JobCard } from '../components/JobCard';
 import { JobModal } from '../components/JobModal';
-import { Plus, Trash2, Search } from 'lucide-react';
+import { Plus, Trash2, Search, Briefcase, Filter, Calendar, Users as UsersIcon, LayoutGrid, CheckSquare } from 'lucide-react';
 import { BRANDS } from '../constants';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useSearchParams } from 'react-router-dom';
 import { startOfMonth, endOfMonth, subMonths, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import { cn } from '../lib/utils';
 
 export function JobBoard() {
   const { user } = useAuth();
@@ -281,60 +282,74 @@ export function JobBoard() {
   const postedJobs = sortedJobs.filter(j => j.status === 'posted');
 
   return (
-    <div className="max-w-full mx-auto flex flex-col h-full space-y-6 text-slate-800">
+    <div className="max-w-full mx-auto flex flex-col h-full space-y-6 text-[#221B18] antialiased">
       
-      {/* Header & Controls */}
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-4 border-b border-slate-200 pb-4">
+      {/* Header & Sticky Board Instructions (Warm Trello sticky index card) */}
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-white/70 p-5 rounded-2xl border border-[#EBE6DE] shadow-sm backdrop-blur-sm">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Job Board</h1>
-          <p className="text-slate-500 text-sm mt-1">Manage and track production workflows by brand.</p>
+          <h1 className="text-2xl font-black tracking-tight text-[#221B18] flex items-center gap-2">
+            <LayoutGrid className="w-6 h-6 text-[#C2593E]" />
+            Warm Workboard
+          </h1>
+          <p className="text-slate-500 text-xs font-semibold mt-1">
+            Production Kanban • Click checklists directly on the cards to mark off tasks in real-time.
+          </p>
         </div>
-        
-        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 w-full xl:w-auto">
-          <div className="flex-1 sm:flex-none w-full sm:w-64">
-            <div className="relative">
-              <span className="absolute -top-2 left-2 bg-[#F8FAFC] px-1 text-[9px] font-bold uppercase tracking-widest text-slate-400 z-10">Search Jobs</span>
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-              <input 
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Title, description, brand..."
-                className="w-full border-slate-300 rounded-md text-sm pl-8 pr-8 h-10 border shadow-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white font-bold text-slate-800"
-              />
-              {searchQuery && (
-                <button 
-                  type="button" 
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 hover:bg-slate-100 rounded-full w-5 h-5 flex items-center justify-center text-slate-400 hover:text-slate-600 focus:outline-none z-10"
-                >
-                  <span className="text-sm font-bold leading-none">&times;</span>
-                </button>
-              )}
-            </div>
+
+        {/* Informative sticky style badge */}
+        <div className="bg-amber-50/70 border border-amber-200/50 rounded-xl p-2 px-3 text-[10px] font-bold text-amber-900 leading-normal max-w-sm">
+          💡 <span className="uppercase text-[9px] tracking-wide text-amber-800">Production Secret:</span> Expand the <b>Production Steps</b> drawer on any card to resolve checklist steps without opening modal popups!
+        </div>
+      </div>
+
+      {/* Filter and Board brand control panel */}
+      <div className="bg-white rounded-2xl border border-[#EBE6DE] p-5 shadow-sm space-y-4">
+        {/* Controls Grid */}
+        <div className="flex flex-wrap items-center gap-3.5">
+          {/* 1. Search Box (Exactly one, old one removed as requested) */}
+          <div className="relative min-w-[200px] flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input 
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by title, description or brand..."
+              className="w-full border border-slate-200 rounded-xl text-xs pl-9 pr-8 h-10 outline-none focus:border-[#C2593E] focus:ring-1 focus:ring-[#C2593E] bg-[#FAF6F0]/40 font-semibold text-slate-800"
+            />
+            {searchQuery && (
+              <button 
+                type="button" 
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 hover:bg-slate-100 rounded-full w-5 h-5 flex items-center justify-center text-slate-400"
+              >
+                &times;
+              </button>
+            )}
           </div>
 
-          {user?.role === 'production' && (
-            <label className="flex items-center space-x-2 text-sm font-bold text-slate-600 cursor-pointer p-2 bg-indigo-50 text-indigo-700 rounded border border-indigo-100 h-10">
-              <input 
-                type="checkbox" 
-                checked={showMyJobs} 
-                onChange={(e) => setShowMyJobs(e.target.checked)} 
-                className="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500" 
-              />
-              <span>My Tasks</span>
-            </label>
-          )}
+          {/* 2. Brand Selector */}
+          <div className="relative">
+            <select 
+              value={selectedBrand}
+              onChange={(e) => setSelectedBrand(e.target.value)}
+              className="border border-slate-200 rounded-xl text-xs pl-3.5 pr-8 h-10 outline-none focus:border-[#C2593E] bg-[#FAF6F0]/20 font-bold text-slate-700 cursor-pointer min-w-[130px]"
+            >
+              <option value="All Brands">All Brands</option>
+              {BRANDS.map(b => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          </div>
 
+          {/* 3. Crew Member filter (Admins/Master admins only) */}
           {(user?.role === 'admin' || user?.role === 'master_admin') && (
-            <div className="relative flex-1 sm:flex-none">
-              <span className="absolute -top-2 left-2 bg-[#F8FAFC] px-1 text-[9px] font-bold uppercase tracking-widest text-slate-400">Crew Member</span>
+            <div className="relative">
               <select 
                 value={selectedAssignee}
                 onChange={(e) => setSelectedAssignee(e.target.value)}
-                className="w-full sm:w-48 border-slate-300 rounded-md text-sm pl-3 pr-8 h-10 border shadow-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white font-bold text-slate-800"
+                className="border border-slate-200 rounded-xl text-xs pl-3.5 pr-8 h-10 outline-none focus:border-[#C2593E] bg-[#FAF6F0]/20 font-bold text-slate-700 cursor-pointer min-w-[140px]"
               >
-                <option value="all">All Crew</option>
+                <option value="all">Everyone's Tasks</option>
                 {users.filter(u => u.role === 'production').map(u => (
                   <option key={u.uid} value={u.uid}>{u.displayName || u.email}</option>
                 ))}
@@ -342,12 +357,12 @@ export function JobBoard() {
             </div>
           )}
 
-          <div className="relative flex-1 sm:flex-none">
-            <span className="absolute -top-2 left-2 bg-[#F8FAFC] px-1 text-[9px] font-bold uppercase tracking-widest text-slate-400">Timeframe</span>
+          {/* 4. Timeframe Selector */}
+          <div className="relative">
             <select 
               value={timeframe}
               onChange={(e) => setTimeframe(e.target.value as any)}
-              className="w-full sm:w-40 border-slate-300 rounded-md text-sm pl-3 pr-8 h-10 border shadow-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white font-bold text-slate-800"
+              className="border border-slate-200 rounded-xl text-xs pl-3.5 pr-8 h-10 outline-none focus:border-[#C2593E] bg-[#FAF6F0]/20 font-bold text-slate-700 cursor-pointer min-w-[120px]"
             >
               <option value="this_month">This Month</option>
               <option value="last_month">Last Month</option>
@@ -357,163 +372,177 @@ export function JobBoard() {
           </div>
 
           {timeframe === 'custom' && (
-            <div className="flex gap-2 w-full sm:w-auto h-10">
-              <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="w-full sm:w-auto border-slate-300 rounded-md text-xs px-2 border shadow-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
-              <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="w-full sm:w-auto border-slate-300 rounded-md text-xs px-2 border shadow-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+            <div className="flex gap-1.5 h-10 items-center">
+              <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="border border-slate-200 rounded-xl text-xs px-2 h-10 bg-[#FAF6F0]/30 font-semibold text-slate-700" />
+              <span className="text-slate-400 font-bold text-xs">-</span>
+              <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="border border-slate-200 rounded-xl text-xs px-2 h-10 bg-[#FAF6F0]/30 font-semibold text-slate-700" />
             </div>
           )}
 
-          <div className="relative flex-1 sm:flex-none">
-            <span className="absolute -top-2 left-2 bg-[#F8FAFC] px-1 text-[9px] font-bold uppercase tracking-widest text-slate-400">Board Brand</span>
-            <select 
-              value={selectedBrand}
-              onChange={(e) => setSelectedBrand(e.target.value)}
-              className="w-full sm:w-48 border-slate-300 rounded-md text-sm pl-3 pr-8 h-10 border shadow-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white font-bold text-slate-800"
+          {/* 5. Production Personal Toggles */}
+          {user?.role === 'production' && (
+            <button 
+              onClick={() => setShowMyJobs(prev => !prev)}
+              className={cn(
+                "h-10 px-4 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all flex items-center gap-1.5 cursor-pointer",
+                showMyJobs 
+                  ? "bg-[#C2593E] text-white border-[#C2593E] shadow-sm"
+                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+              )}
             >
-              <option value="All Brands">All Brands</option>
-              {BRANDS.map(b => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
-          </div>
+              <CheckSquare className="w-4 h-4" />
+              <span>Assigned To Me: {showMyJobs ? 'ON' : 'OFF'}</span>
+            </button>
+          )}
 
-          <div className="relative flex-1 sm:flex-none flex items-center gap-2">
-            <div className="relative flex-1 sm:w-48">
-              <span className="absolute -top-2 left-2 bg-[#F8FAFC] px-1 text-[9px] font-bold uppercase tracking-widest text-slate-400">Sort By</span>
-              <select 
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="w-full border-slate-300 rounded-md text-sm pl-3 pr-8 h-10 border shadow-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white font-bold text-slate-800"
-              >
-                <option value="newest">Created Date</option>
-                <option value="requestedDeadline">Req Deadline</option>
-                <option value="productionDeadline">Prod Deadline</option>
-                <option value="jobType">Job Type</option>
-                <option value="alpha">Alphabetical</option>
-              </select>
-            </div>
+          {user && (
+            <button 
+              onClick={() => setShowMyOrders(prev => !prev)}
+              className={cn(
+                "h-10 px-4 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all flex items-center gap-1.5 cursor-pointer",
+                showMyOrders 
+                  ? "bg-[#C2593E] text-white border-[#C2593E] shadow-sm"
+                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+              )}
+            >
+              <span>My Orders: {showMyOrders ? 'ON' : 'OFF'}</span>
+            </button>
+          )}
+
+          {/* 6. Sort By Selection & Sort Order */}
+          <div className="flex items-center gap-1">
+            <select 
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="border border-slate-200 rounded-xl text-xs pl-3.5 pr-8 h-10 outline-none focus:border-[#C2593E] bg-[#FAF6F0]/20 font-bold text-slate-700 cursor-pointer min-w-[120px]"
+            >
+              <option value="newest">Sort: Newest</option>
+              <option value="requestedDeadline">Sort: Requested Deadline</option>
+              <option value="productionDeadline">Sort: Prod Deadline</option>
+              <option value="jobType">Sort: Job Type</option>
+              <option value="alpha">Sort: A-Z Title</option>
+            </select>
             
             <button
               onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-              className="h-10 px-3 border border-slate-300 rounded-md shadow-sm bg-white hover:bg-slate-50 text-slate-600 font-bold text-xs uppercase tracking-wider flex items-center gap-1"
+              className="h-10 px-3 border border-slate-200 rounded-xl shadow-sm bg-white hover:bg-slate-50 text-slate-600 font-bold text-xs uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+              title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
             >
-              {sortOrder === 'asc' ? 'Asc \u2191' : 'Desc \u2193'}
+              {sortOrder === 'asc' ? '↑' : '↓'}
             </button>
           </div>
 
-          {user && (
-            <label className="flex items-center space-x-2 text-sm font-bold text-slate-600 cursor-pointer p-2 bg-indigo-50 text-indigo-700 rounded border border-indigo-100 h-10 select-none">
-              <input 
-                type="checkbox" 
-                checked={showMyOrders} 
-                onChange={(e) => setShowMyOrders(e.target.checked)} 
-                className="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500" 
-              />
-              <span>My Orders</span>
-            </label>
-          )}
-          
-          {user?.role === 'master_admin' && (
-            <button
-              onClick={handleWipeAll}
-              className="px-3 py-2.5 rounded-md text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 transition flex items-center w-full sm:w-auto justify-center border border-red-200"
-              title="Reset Board (DANGER)"
-            >
-              <Trash2 className="w-4 h-4 sm:mr-0 lg:mr-1.5" />
-              <span className="inline lg:hidden xl:inline ml-1.5 sm:ml-0 lg:ml-1.5">Reset Board</span>
-            </button>
-          )}
+          {/* Empty Space pushers for right-alignment */}
+          <div className="flex-1"></div>
 
-          {allowedToCreate && (
-            <button
-              onClick={() => handleOpenModal()}
-              className="bg-indigo-600 text-white px-4 py-2.5 rounded-md text-sm font-bold hover:bg-indigo-700 transition flex items-center shadow-sm w-full sm:w-auto justify-center"
-            >
-              <Plus className="w-4 h-4 mr-1.5" />
-              New Job
-            </button>
-          )}
+          {/* 7. Action Button Panel (Wipe / Create Job Order buttons strictly aligned to the right of sort controls!) */}
+          <div className="flex items-center gap-2">
+            {user?.role === 'master_admin' && (
+              <button
+                onClick={handleWipeAll}
+                className="h-10 px-3.5 rounded-xl text-xs font-bold text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 transition flex items-center gap-1 cursor-pointer"
+                title="Wipe Board Database"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Wipe Database</span>
+              </button>
+            )}
+
+            {allowedToCreate && (
+              <button
+                onClick={() => handleOpenModal()}
+                className="bg-[#C2593E] hover:bg-[#A3432A] text-white px-5.5 h-10 rounded-xl text-xs font-extrabold uppercase tracking-widest transition flex items-center gap-2 shadow-sm cursor-pointer hover:scale-[1.02]"
+              >
+                <Plus className="w-4 h-4" />
+                <span>New Job Request</span>
+              </button>
+            )}
+          </div>
+
         </div>
       </div>
 
-      {/* Board Selector Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+      {/* Board Brand Tab Separators (Trello nested filing look and feel) */}
+      <div className="flex flex-wrap items-center gap-2 bg-[#FAF6F0] p-1.5 rounded-2xl border border-[#EBE6DE]">
         <button
           onClick={() => setActiveBoardId('main')}
-          className={`px-4 py-2 text-xs font-bold rounded-lg transition-all uppercase tracking-wide ${
+          className={cn(
+            "px-5 py-2.5 text-xs font-extrabold rounded-xl transition-all uppercase tracking-wider cursor-pointer",
             activeBoardId === 'main'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-          }`}
+              ? 'bg-[#C2593E] text-white shadow-sm scale-102'
+              : 'bg-white/80 border border-[#EBE6DE] text-slate-600 hover:bg-white hover:text-slate-900 shadow-xs'
+          )}
         >
-          Main Board
+          🗂️ Main Board
         </button>
         {boards.map(b => (
-          <div key={b.id} className="flex items-center gap-1">
+          <div key={b.id} className="flex items-center gap-1 bg-white/40 p-1 rounded-xl border border-[#EBE6DE]/60">
             <button
               onClick={() => setActiveBoardId(b.id!)}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all uppercase tracking-wide ${
+              className={cn(
+                "px-4 py-2 text-xs font-extrabold rounded-xl transition-all uppercase tracking-wider cursor-pointer",
                 activeBoardId === b.id
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
+                  ? 'bg-[#C2593E] text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-white hover:text-slate-950'
+              )}
             >
-              {b.name}
+              📁 {b.name}
             </button>
             {user?.role === 'master_admin' && activeBoardId === b.id && (
               <button
                 onClick={() => handleDeleteBoard(b.id!, b.name)}
-                className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg hover:text-red-700 transition"
-                title="Delete this board"
+                className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg hover:text-red-700 transition cursor-pointer"
+                title="Delete this board permanent"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
         ))}
+        
         {user?.role === 'master_admin' && (
           <button
             onClick={() => setIsAddBoardModalOpen(true)}
-            className="px-4 py-2 text-xs font-bold rounded-lg border border-dashed border-slate-300 text-slate-500 hover:border-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex items-center gap-1 uppercase tracking-wide"
+            className="px-4 py-2 text-xs font-bold rounded-xl border border-dashed border-[#C2593E]/40 text-[#C2593E] hover:border-[#C2593E] hover:bg-[#C2593E]/5 transition-all flex items-center gap-1.5 uppercase tracking-wide cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" /> Add Board
+            <Plus className="w-4 h-4" /> Create Board
           </button>
         )}
       </div>
 
       {isAddBoardModalOpen && (
-        <div className="fixed z-50 inset-0 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div className="fixed z-50 inset-0 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden max-w-md w-full p-6 text-slate-800"
+            className="bg-white rounded-2xl shadow-xl border border-[#EBE6DE] overflow-hidden max-w-sm w-full p-6 text-[#221B18]"
           >
-            <h3 className="text-lg font-bold mb-1">Create Job Board</h3>
-            <p className="text-slate-500 text-xs mb-4">Enter a name for the new job board. Only master admins can perform this action.</p>
+            <h3 className="text-lg font-black mb-1.5 tracking-tight">Create Job Board</h3>
+            <p className="text-slate-500 text-xs mb-5">Enter a name for the new category board. Only master admins can create new boards.</p>
             <form onSubmit={handleAddBoardSubmit} className="space-y-4">
               <div>
-                <label className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2">Board Name</label>
+                <label className="block text-[9px] uppercase font-bold text-[#8C6A5C] tracking-wider mb-2">Board Category Name</label>
                 <input
                   type="text"
                   required
                   value={newBoardName}
                   onChange={e => setNewBoardName(e.target.value)}
-                  placeholder="ex: Video Production, Social Media Ads"
-                  className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-md bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-bold text-slate-800"
+                  placeholder="ex: Video Production, Social Ads, Main Store"
+                  className="w-full text-xs px-3.5 py-3 border border-slate-200 rounded-xl bg-[#FAF6F0]/40 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#C2593E] font-bold text-slate-800"
                   maxLength={100}
                 />
               </div>
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-3">
                 <button
                   type="button"
                   onClick={() => { setIsAddBoardModalOpen(false); setNewBoardName(''); }}
-                  className="px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-100 transition animate-none"
+                  className="px-4 py-2.5 text-xs font-bold text-slate-600 bg-white border border-[#EBE6DE] rounded-xl hover:bg-slate-100 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-sm font-bold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition shadow-sm animate-none"
+                  className="px-4 py-2.5 text-xs font-black text-white bg-[#C2593E] rounded-xl hover:bg-[#A3432A] transition shadow-sm cursor-pointer"
                 >
                   Create Board
                 </button>
@@ -523,79 +552,130 @@ export function JobBoard() {
         </div>
       )}
 
-      {/* Kanban Board */}
-      <div className="flex-1 overflow-x-auto min-h-[500px] pb-4">
-        <div className="flex flex-col lg:flex-row gap-6 h-full items-start w-full min-w-full lg:min-w-[900px]">
+      {/* Kanban Board Grid */}
+      <div className="flex-1 overflow-x-auto min-h-[580px] pb-6">
+        <div className="flex flex-col lg:flex-row gap-5 h-full items-start w-full min-w-full lg:min-w-[1000px]">
           
-          {/* Column: To Do */}
-          <div className="w-full lg:w-1/4 bg-slate-100 rounded-xl p-4 flex flex-col border border-slate-200">
+          {/* Column 1: TO DO (Open requirements list) */}
+          <div className="w-full lg:w-1/4 bg-[#EDE9E3]/75 rounded-2xl p-4.5 flex flex-col border border-[#DCD5CB] min-w-[250px]">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-sm text-slate-700 uppercase tracking-wide">To Do</h2>
-              <span className="bg-slate-200 text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full">{todoJobs.length}</span>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm" />
+                <h2 className="font-extrabold text-[#221B18] text-xs uppercase tracking-wider">To Do</h2>
+              </div>
+              <span className="bg-white text-slate-600 text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs border border-[#EBE6DE]">{todoJobs.length}</span>
             </div>
-            <div className="space-y-4 overflow-y-auto max-h-[70vh] lg:max-h-full pb-2">
-              {todoJobs.map(job => (
-                <JobCard key={job.id} job={job} onClick={handleOpenModal} users={users} />
-              ))}
+            <div className="space-y-4 overflow-y-auto max-h-[75vh] lg:max-h-full pb-2">
+              <AnimatePresence>
+                {todoJobs.map(job => (
+                  <motion.div 
+                    layout 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    key={job.id}
+                  >
+                    <JobCard job={job} onClick={handleOpenModal} users={users} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
               {todoJobs.length === 0 && (
-                <div className="border border-dashed border-slate-300 rounded-lg p-6 text-center text-slate-400 text-xs font-bold">No Open Tasks</div>
+                <div className="border border-dashed border-slate-300 rounded-xl p-8 text-center text-slate-400 text-xs font-semibold bg-white/40">
+                  Inbox Clear
+                </div>
               )}
             </div>
           </div>
 
-          {/* Column: On Progress */}
-          <div className="w-full lg:w-1/4 bg-indigo-50/50 rounded-xl p-4 flex flex-col border border-indigo-100/50 shrink-0">
+          {/* Column 2: ON PROGRESS (In production lane) */}
+          <div className="w-full lg:w-1/4 bg-[#EFE9DE]/80 rounded-2xl p-4.5 flex flex-col border border-[#DECAB3] min-w-[250px]">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-sm text-indigo-800 uppercase tracking-wide flex items-center">
-                <span className="w-2 h-2 rounded-full bg-indigo-500 mr-2"></span>
-                On Progress
-              </h2>
-              <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded-full">{progressJobs.length}</span>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#C2593E] shadow-sm animate-pulse" />
+                <h2 className="font-extrabold text-[#221B18] text-xs uppercase tracking-wider">On Progress</h2>
+              </div>
+              <span className="bg-white text-[#C2593E] text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs border border-[#DECAB3]">{progressJobs.length}</span>
             </div>
-            <div className="space-y-4 overflow-y-auto max-h-[70vh] lg:max-h-full pb-2">
-              {progressJobs.map(job => (
-                <JobCard key={job.id} job={job} onClick={handleOpenModal} users={users} />
-              ))}
+            <div className="space-y-4 overflow-y-auto max-h-[75vh] lg:max-h-full pb-2">
+              <AnimatePresence>
+                {progressJobs.map(job => (
+                  <motion.div 
+                    layout 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    key={job.id}
+                  >
+                    <JobCard job={job} onClick={handleOpenModal} users={users} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
               {progressJobs.length === 0 && (
-                <div className="border border-dashed border-indigo-200 rounded-lg p-6 text-center text-indigo-400/70 text-xs font-bold">Clear</div>
+                <div className="border border-dashed border-[#DECAB3]/80 rounded-xl p-8 text-center text-[#8C6A5C]/40 text-xs font-semibold bg-white/20">
+                  No Active Production Work
+                </div>
               )}
             </div>
           </div>
 
-          {/* Column: Finish */}
-          <div className="w-full lg:w-1/4 bg-emerald-50/50 rounded-xl p-4 flex flex-col border border-emerald-100/50 shrink-0">
+          {/* Column 3: FINISHED (Files uploaded, waiting review) */}
+          <div className="w-full lg:w-1/4 bg-[#E3EFE3]/80 rounded-2xl p-4.5 flex flex-col border border-[#C9DEC9] min-w-[250px]">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-sm text-emerald-800 uppercase tracking-wide flex items-center">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span>
-                Finish
-              </h2>
-              <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-0.5 rounded-full">{finishedJobs.length + postedJobs.length}</span>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm" />
+                <h2 className="font-extrabold text-[#221B18] text-xs uppercase tracking-wider">Finish</h2>
+              </div>
+              <span className="bg-white text-emerald-800 text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs border border-[#C9DEC9]">{finishedJobs.length}</span>
             </div>
-            <div className="space-y-4 overflow-y-auto max-h-[70vh] lg:max-h-full pb-2">
-              {finishedJobs.map(job => (
-                <JobCard key={job.id} job={job} onClick={handleOpenModal} users={users} />
-              ))}
+            <div className="space-y-4 overflow-y-auto max-h-[75vh] lg:max-h-full pb-2">
+              <AnimatePresence>
+                {finishedJobs.map(job => (
+                  <motion.div 
+                    layout 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    key={job.id}
+                  >
+                    <JobCard job={job} onClick={handleOpenModal} users={users} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
               {finishedJobs.length === 0 && (
-                <div className="border border-dashed border-emerald-200 rounded-lg p-6 text-center text-emerald-400/70 text-xs font-bold">Clear</div>
+                <div className="border border-dashed border-[#C9DEC9]/80 rounded-xl p-8 text-center text-emerald-800/40 text-xs font-semibold bg-white/25">
+                  Inbox Clear
+                </div>
               )}
             </div>
           </div>
 
-          {/* Column: Posted */}
-          <div className="w-full lg:w-1/4 bg-violet-50/50 rounded-xl p-4 flex flex-col border border-violet-100/50 shrink-0">
+          {/* Column 4: POSTED (Final outcome delivered) */}
+          <div className="w-full lg:w-1/4 bg-[#ECE3EF]/80 rounded-2xl p-4.5 flex flex-col border border-[#D9CBE2] min-w-[250px]">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-sm text-violet-800 uppercase tracking-wide flex items-center">
-                <span className="w-2 h-2 rounded-full bg-violet-500 mr-2"></span>
-                Posted
-              </h2>
-              <span className="bg-violet-100 text-violet-700 text-xs font-bold px-2 py-0.5 rounded-full">{postedJobs.length}</span>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-violet-500 shadow-sm" />
+                <h2 className="font-extrabold text-[#221B18] text-xs uppercase tracking-wider">Posted</h2>
+              </div>
+              <span className="bg-white text-violet-800 text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs border border-[#D9CBE2]">{postedJobs.length}</span>
             </div>
-            <div className="space-y-4 overflow-y-auto max-h-[70vh] lg:max-h-full pb-2">
-              {postedJobs.map(job => (
-                <JobCard key={job.id} job={job} onClick={handleOpenModal} users={users} />
-              ))}
+            <div className="space-y-4 overflow-y-auto max-h-[75vh] lg:max-h-full pb-2">
+              <AnimatePresence>
+                {postedJobs.map(job => (
+                  <motion.div 
+                    layout 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    key={job.id}
+                  >
+                    <JobCard job={job} onClick={handleOpenModal} users={users} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
               {postedJobs.length === 0 && (
-                <div className="border border-dashed border-violet-200 rounded-lg p-6 text-center text-violet-400/70 text-xs font-bold">Clear</div>
+                <div className="border border-dashed border-[#D9CBE2]/80 rounded-xl p-8 text-center text-violet-800/40 text-xs font-semibold bg-white/20">
+                  No Delivered Content
+                </div>
               )}
             </div>
           </div>

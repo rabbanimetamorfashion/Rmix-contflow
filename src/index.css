@@ -1,1 +1,31 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-warm-cream: #FAF6F0;
+  --color-warm-linen: #F5EFEB;
+  --color-warm-card: #FFFFFF;
+  --color-warm-dark: #221B18;
+  --color-warm-clay: #8C6A5C;
+  --color-warm-rust: #C2593E;
+  --color-warm-highlight: #FBF7F4;
+}
+
+/* Custom scrollbar to mimic premium apps like Trello */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #E2DBD5;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #C8BFB7;
+}
