@@ -86,9 +86,24 @@ service cloud.firestore {
              (!('assignedAt' in data) || data.assignedAt is number) &&
              (!('startedAt' in data) || data.startedAt is number) &&
              (!('finishedAt' in data) || data.finishedAt is number) &&
-             (!('updatedAt' in data) || data.updatedAt is number);
+             (!('updatedAt' in data) || data.updatedAt is number) &&
+             (!('boardId' in data) || (data.boardId is string && data.boardId.size() <= 128));
 
       return isCoreValid && isOptionalsValid;
+    }
+
+    function isValidBoard(data) {
+      return data.keys().hasAll(['name', 'createdAt', 'creatorId']) &&
+             data.name is string && data.name.size() <= 100 &&
+             data.createdAt is number &&
+             data.creatorId is string && data.creatorId.size() <= 128;
+    }
+
+    match /boards/{boardId} {
+      allow read: if isSignedIn();
+      allow create: if isMasterAdmin() && isValidId(boardId) && isValidBoard(incoming());
+      allow update: if isMasterAdmin() && isValidBoard(incoming());
+      allow delete: if isMasterAdmin();
     }
 
     match /jobs/{jobId} {

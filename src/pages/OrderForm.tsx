@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../lib/firebase';
-import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'motion/react';
 import { format, addDays } from 'date-fns';
-import { Job } from '../types';
+import { Job, Board } from '../types';
 import { ShoppingCart } from 'lucide-react';
 import { BRANDS } from '../constants';
 
@@ -75,6 +75,23 @@ export function OrderForm() {
   // Default to D+3
   const [requestedDeadline, setRequestedDeadline] = useState(format(addDays(new Date(), 3), 'yyyy-MM-dd'));
 
+  // Custom Boards state
+  const [boards, setBoards] = useState<Board[]>([]);
+  const [selectedBoardId, setSelectedBoardId] = useState<string>('main');
+
+  React.useEffect(() => {
+    const fetchBoards = async () => {
+      try {
+        const q = query(collection(db, 'boards'), orderBy('createdAt', 'asc'));
+        const snap = await getDocs(q);
+        setBoards(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Board)));
+      } catch (err) {
+        console.error("Failed to load custom boards:", err);
+      }
+    };
+    fetchBoards();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -107,6 +124,7 @@ export function OrderForm() {
         brand: brands,
         campaign,
         requestedDeadline: new Date(requestedDeadline).getTime(),
+        boardId: selectedBoardId,
         ...(scriptLink && { scriptLink }),
       };
 
@@ -224,6 +242,20 @@ export function OrderForm() {
                 placeholder="https://docs.google.com/..."
                 className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-md bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
               />
+            </div>
+
+            <div>
+              <label className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2">Target Job Board</label>
+              <select
+                value={selectedBoardId}
+                onChange={e => setSelectedBoardId(e.target.value)}
+                className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-md bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-bold text-slate-700"
+              >
+                <option value="main">Main Board</option>
+                {boards.map(b => (
+                  <option key={b.id} value={b.id!}>{b.name}</option>
+                ))}
+              </select>
             </div>
           </div>
 

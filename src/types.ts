@@ -4,6 +4,13 @@ export interface ChecklistItem {
   isCompleted: boolean;
 }
 
+export interface Board {
+  id?: string;
+  name: string;
+  createdAt: number;
+  creatorId: string;
+}
+
 export interface Comment {
   id?: string;
   jobId: string;
@@ -25,6 +32,7 @@ export interface Job {
   gdriveLink?: string;
   progress: number;
   checklists?: ChecklistItem[];
+  boardId?: string; // Target Job Board
 
   // New fields for Job Ordering
   creatorId?: string;

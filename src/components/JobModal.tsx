@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Job, ChecklistItem, Comment } from '../types';
+import { Job, ChecklistItem, Comment, Board } from '../types';
 import { AppUser } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
 import { doc, updateDoc, addDoc, collection, query, orderBy, onSnapshot, deleteDoc } from 'firebase/firestore';
@@ -11,7 +11,7 @@ import { cn } from '../lib/utils';
 import { BRANDS } from '../constants';
 import { JOB_TYPES } from '../pages/OrderForm';
 
-export function JobModal({ job, onClose, productionUsers, currentUser, allUsers = [] }: { job?: Job; onClose: () => void; productionUsers: AppUser[]; currentUser: AppUser | null; allUsers?: AppUser[] }) {
+export function JobModal({ job, onClose, productionUsers, currentUser, allUsers = [], defaultBoardId = 'main' }: { job?: Job; onClose: () => void; productionUsers: AppUser[]; currentUser: AppUser | null; allUsers?: AppUser[]; defaultBoardId?: string }) {
   const isNew = !job;
   const isEditingAllowed = currentUser?.role === 'admin' || currentUser?.role === 'master_admin';
   const isMasterAdmin = currentUser?.role === 'master_admin';
@@ -26,6 +26,18 @@ export function JobModal({ job, onClose, productionUsers, currentUser, allUsers 
 
   const [title, setTitle] = useState(job?.title || '');
   const [description, setDescription] = useState(job?.description || '');
+  
+  // Custom boards state
+  const [boardId, setBoardId] = useState(job?.boardId || defaultBoardId || 'main');
+  const [boards, setBoards] = useState<Board[]>([]);
+
+  useEffect(() => {
+    const q = query(collection(db, 'boards'), orderBy('createdAt', 'asc'));
+    const unsub = onSnapshot(q, snap => {
+      setBoards(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Board)));
+    });
+    return () => unsub();
+  }, []);
   
   // Maintain backward compatibility with assigneeId while pushing to assigneeIds
   const [assigneeIds, setAssigneeIds] = useState<string[]>(job?.assigneeIds || (job?.assigneeId ? [job?.assigneeId] : []));
@@ -150,6 +162,7 @@ export function JobModal({ job, onClose, productionUsers, currentUser, allUsers 
           status: 'open',
           progress: 0,
           createdAt: Date.now(),
+          boardId,
         };
         const docRef = await addDoc(collection(db, 'jobs'), newJob);
         
@@ -160,7 +173,7 @@ export function JobModal({ job, onClose, productionUsers, currentUser, allUsers 
                userId: id, message: `You have been assigned a new job: ${title}`, read: false, createdAt: Date.now(), type: 'assignment'
              });
            });
-        }
+         }
       } else {
         const docRef = doc(db, 'jobs', job.id!);
         const currentAssigneeIds = job.assigneeIds || (job.assigneeId ? [job.assigneeId] : []);
@@ -168,6 +181,7 @@ export function JobModal({ job, onClose, productionUsers, currentUser, allUsers 
         let updates: Partial<Job> = { title, description, updatedAt: Date.now() };
 
         if (isEditingAllowed) {
+          updates.boardId = boardId;
           if (isMasterAdmin) {
             updates.jobType = jobType;
             updates.quantity = quantity;
@@ -351,6 +365,23 @@ export function JobModal({ job, onClose, productionUsers, currentUser, allUsers 
                 <label className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Description</label>
                 <textarea required disabled={isNew && !isEditingAllowed} rows={3} className="w-full text-sm px-3 py-2 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-500" value={description} onChange={e => setDescription(e.target.value)} placeholder="Description"/>
               </div>
+
+              {(isEditingAllowed || isNew) && (
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Target Job Board</label>
+                  <select
+                    value={boardId}
+                    onChange={e => setBoardId(e.target.value)}
+                    className="w-full text-sm px-3 py-2 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-bold text-slate-700 disabled:bg-slate-100"
+                    disabled={isNew && !isEditingAllowed}
+                  >
+                    <option value="main">Main Board</option>
+                    {boards.map(b => (
+                      <option key={b.id} value={b.id!}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {isEditingAllowed && (
                 <div>

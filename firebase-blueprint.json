@@ -25,7 +25,8 @@
         "createdAt": { "type": "number" },
         "deadline": { "type": "number", "description": "Timestamp, set once by assignee" },
         "gdriveLink": { "type": "string" },
-        "progress": { "type": "number", "description": "0 to 100" }
+        "progress": { "type": "number", "description": "0 to 100" },
+        "boardId": { "type": "string", "description": "ID of the custom job board" }
       },
       "required": ["title", "status", "createdAt"]
     },
@@ -41,6 +42,17 @@
         "type": { "type": "string", "enum": ["assignment", "deadline_approaching"] }
       },
       "required": ["userId", "message", "read", "createdAt", "type"]
+    },
+    "board": {
+      "title": "Board",
+      "description": "An additional custom job board",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "creatorId": { "type": "string" }
+      },
+      "required": ["name", "createdAt", "creatorId"]
     }
   },
   "firestore": {
@@ -55,6 +67,10 @@
     "/notifications/{notificationId}": {
       "schema": { "$ref": "#/entities/notification" },
       "description": "Notifications directed at specific users"
+    },
+    "/boards/{boardId}": {
+      "schema": { "$ref": "#/entities/board" },
+      "description": "Additional custom job boards"
     }
   }
 }

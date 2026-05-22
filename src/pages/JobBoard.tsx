@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
-import { collection, query, onSnapshot, orderBy, doc, setDoc, getDocs, deleteDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, doc, setDoc, getDocs, deleteDoc, updateDoc, addDoc } from 'firebase/firestore';
 import { useAuth, AppUser } from '../contexts/AuthContext';
-import { Job } from '../types';
+import { Job, Board } from '../types';
 import { JobCard } from '../components/JobCard';
 import { JobModal } from '../components/JobModal';
 import { Plus, Trash2, Search } from 'lucide-react';
@@ -30,6 +30,12 @@ export function JobBoard() {
   const [selectedAssignee, setSelectedAssignee] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // Custom Boards State
+  const [boards, setBoards] = useState<Board[]>([]);
+  const [activeBoardId, setActiveBoardId] = useState<string>('main');
+  const [isAddBoardModalOpen, setIsAddBoardModalOpen] = useState(false);
+  const [newBoardName, setNewBoardName] = useState('');
+
   useEffect(() => {
     // Listen to jobs
     const qJobs = query(collection(db, 'jobs'), orderBy('createdAt', 'desc'));
@@ -43,9 +49,16 @@ export function JobBoard() {
       setUsers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser)));
     });
 
+    // Listen to custom boards
+    const qBoards = query(collection(db, 'boards'), orderBy('createdAt', 'asc'));
+    const unsubBoards = onSnapshot(qBoards, (snapshot) => {
+      setBoards(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Board)));
+    });
+
     return () => {
       unsubJobs();
       unsubUsers();
+      unsubBoards();
     };
   }, []);
 
@@ -112,6 +125,49 @@ export function JobBoard() {
     }
   };
 
+  const handleDeleteBoard = async (boardId: string, boardName: string) => {
+    if (boardId === 'main') return;
+    if (!window.confirm(`Are you sure you want to delete the job board "${boardName}"? All jobs on this board will be moved back to the Main Board.`)) return;
+    try {
+      await deleteDoc(doc(db, 'boards', boardId));
+      
+      const affectedJobs = jobs.filter(j => j.boardId === boardId);
+      for (const job of affectedJobs) {
+        if (job.id) {
+          await updateDoc(doc(db, 'jobs', job.id), { boardId: 'main' });
+        }
+      }
+      
+      setActiveBoardId('main');
+      alert(`Board "${boardName}" has been successfully deleted.`);
+    } catch (err) {
+      console.error("Failed to delete board:", err);
+      alert("Failed to delete board. Check permissions.");
+    }
+  };
+
+  const handleAddBoardSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || user.role !== 'master_admin') return;
+    if (!newBoardName.trim()) {
+      alert("Please enter a board name.");
+      return;
+    }
+    try {
+      const docRef = await addDoc(collection(db, 'boards'), {
+        name: newBoardName.trim(),
+        createdAt: Date.now(),
+        creatorId: user.uid
+      });
+      setIsAddBoardModalOpen(false);
+      setNewBoardName('');
+      setActiveBoardId(docRef.id);
+    } catch (err) {
+      console.error("Failed to create board:", err);
+      alert("Failed to create board. Check permissions.");
+    }
+  };
+
   const productionUsers = users.filter(u => u.role === 'production');
   const allowedToCreate = user?.role === 'admin' || user?.role === 'master_admin';
 
@@ -141,7 +197,12 @@ export function JobBoard() {
     filteredByDate = filteredByDate.filter(j => isWithinInterval(j.createdAt, { start, end }));
   }
 
-  let boardJobs = filteredByDate;
+  let boardJobs = filteredByDate.filter(j => {
+    if (activeBoardId === 'main') {
+      return !j.boardId || j.boardId === 'main';
+    }
+    return j.boardId === activeBoardId;
+  });
   if (selectedBrand !== 'All Brands') {
     boardJobs = boardJobs.filter(j => Array.isArray(j.brand) ? j.brand.includes(selectedBrand) : j.brand === selectedBrand);
   }
@@ -375,6 +436,93 @@ export function JobBoard() {
         </div>
       </div>
 
+      {/* Board Selector Tabs */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+        <button
+          onClick={() => setActiveBoardId('main')}
+          className={`px-4 py-2 text-xs font-bold rounded-lg transition-all uppercase tracking-wide ${
+            activeBoardId === 'main'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          Main Board
+        </button>
+        {boards.map(b => (
+          <div key={b.id} className="flex items-center gap-1">
+            <button
+              onClick={() => setActiveBoardId(b.id!)}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all uppercase tracking-wide ${
+                activeBoardId === b.id
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              {b.name}
+            </button>
+            {user?.role === 'master_admin' && activeBoardId === b.id && (
+              <button
+                onClick={() => handleDeleteBoard(b.id!, b.name)}
+                className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg hover:text-red-700 transition"
+                title="Delete this board"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        ))}
+        {user?.role === 'master_admin' && (
+          <button
+            onClick={() => setIsAddBoardModalOpen(true)}
+            className="px-4 py-2 text-xs font-bold rounded-lg border border-dashed border-slate-300 text-slate-500 hover:border-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex items-center gap-1 uppercase tracking-wide"
+          >
+            <Plus className="w-3.5 h-3.5" /> Add Board
+          </button>
+        )}
+      </div>
+
+      {isAddBoardModalOpen && (
+        <div className="fixed z-50 inset-0 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden max-w-md w-full p-6 text-slate-800"
+          >
+            <h3 className="text-lg font-bold mb-1">Create Job Board</h3>
+            <p className="text-slate-500 text-xs mb-4">Enter a name for the new job board. Only master admins can perform this action.</p>
+            <form onSubmit={handleAddBoardSubmit} className="space-y-4">
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2">Board Name</label>
+                <input
+                  type="text"
+                  required
+                  value={newBoardName}
+                  onChange={e => setNewBoardName(e.target.value)}
+                  placeholder="ex: Video Production, Social Media Ads"
+                  className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-md bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-bold text-slate-800"
+                  maxLength={100}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setIsAddBoardModalOpen(false); setNewBoardName(''); }}
+                  className="px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-100 transition animate-none"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm font-bold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition shadow-sm animate-none"
+                >
+                  Create Board
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
       {/* Kanban Board */}
       <div className="flex-1 overflow-x-auto min-h-[500px] pb-4">
         <div className="flex flex-col lg:flex-row gap-6 h-full items-start w-full min-w-full lg:min-w-[900px]">
@@ -462,6 +610,7 @@ export function JobBoard() {
           productionUsers={productionUsersWithWorkload as AppUser[]}
           currentUser={user}
           allUsers={users}
+          defaultBoardId={activeBoardId}
         />
       )}
     </div>
