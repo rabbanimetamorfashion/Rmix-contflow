@@ -93,18 +93,17 @@ export function Layout() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-full overflow-hidden pb-16 md:pb-0">
-        {/* Mobile Header & Desktop Topbar */}
-        <header className="h-16 bg-white border-b border-[#EBE6DE] flex items-center justify-between px-4 sm:px-6">
-          <div className="md:hidden flex items-center gap-2">
+        {/* Mobile Header (Hidden on Desktop) */}
+        <header className="h-16 bg-white border-b border-[#EBE6DE] flex md:hidden items-center justify-between px-4 sm:px-6">
+          <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded bg-[#C2593E] text-white font-extrabold text-sm">C</div>
             <span className="text-lg font-extrabold text-slate-800 tracking-tight">ContentFlow</span>
           </div>
-          <div className="hidden md:flex flex-1"></div>
           <div className="flex items-center space-x-3">
             <NotificationDropdown />
             <button
               onClick={signOut}
-              className="md:hidden p-2 text-slate-500 hover:text-slate-900 rounded-xl"
+              className="p-2 text-slate-500 hover:text-slate-900 rounded-xl"
             >
               <LogOut className="h-5 w-5" />
             </button>

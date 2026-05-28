@@ -152,11 +152,11 @@ export function JobCard({ job, onClick, users = [] }: JobCardProps) {
 
   return (
     <motion.div
-      whileHover={{ y: -4, scale: 1.01 }}
-      transition={{ type: "spring", stiffness: 300, damping: 25 }}
+      whileHover={{ y: -3 }}
+      transition={{ duration: 0.12, ease: "easeOut" }}
       onClick={() => onClick(job)}
       className={cn(
-        "bg-white p-4.5 rounded-2xl border-l-[5px] border-t border-r border-b cursor-pointer transition-all flex flex-col h-full relative group/card shadow-[0_2px_4px_rgba(34,27,24,0.02),0_6px_16px_rgba(34,27,24,0.03)] hover:shadow-[0_8px_24px_rgba(34,27,24,0.06)]", 
+        "bg-white p-4.5 rounded-2xl border-l-[5px] border-t border-r border-b cursor-pointer transition-shadow duration-150 flex flex-col h-full relative group/card shadow-[0_2px_4px_rgba(34,27,24,0.02),0_6px_16px_rgba(34,27,24,0.03)] hover:shadow-[0_8px_24px_rgba(34,27,24,0.06)]", 
         getBorderColor(job.status)
       )}
     >

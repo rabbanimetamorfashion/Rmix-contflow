@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useSearchParams } from 'react-router-dom';
 import { startOfMonth, endOfMonth, subMonths, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { cn } from '../lib/utils';
+import { NotificationDropdown } from '../components/NotificationDropdown';
 
 export function JobBoard() {
   const { user } = useAuth();
@@ -281,24 +282,95 @@ export function JobBoard() {
   const finishedJobs = sortedJobs.filter(j => j.status === 'completed');
   const postedJobs = sortedJobs.filter(j => j.status === 'posted');
 
+  const activeBoard = boards.find(b => b.id === activeBoardId);
+  const currentBoardName = activeBoardId === 'main' ? 'Main Board' : (activeBoard?.name || 'Custom Board');
+
   return (
     <div className="max-w-full mx-auto flex flex-col h-full space-y-6 text-[#221B18] antialiased">
       
-      {/* Header & Sticky Board Instructions (Warm Trello sticky index card) */}
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-white/70 p-5 rounded-2xl border border-[#EBE6DE] shadow-sm backdrop-blur-sm">
-        <div>
+      {/* Header with Dynamic Board Name & Embedded Switcher */}
+      <div className="flex flex-col gap-4 bg-white/70 p-5 rounded-2xl border border-[#EBE6DE] shadow-sm backdrop-blur-sm">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-2xl font-black tracking-tight text-[#221B18] flex items-center gap-2">
             <LayoutGrid className="w-6 h-6 text-[#C2593E]" />
-            Warm Workboard
+            {currentBoardName}
           </h1>
-          <p className="text-slate-500 text-xs font-semibold mt-1">
-            Production Kanban • Click checklists directly on the cards to mark off tasks in real-time.
-          </p>
+
+          {/* Actionable Unified Search box & Notifications */}
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="relative min-w-[240px] max-w-sm flex-1 sm:w-80">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input 
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by title, description or brand..."
+                className="w-full border border-slate-200 rounded-xl text-xs pl-9 pr-8 h-10 outline-none focus:border-[#C2593E] focus:ring-1 focus:ring-[#C2593E] bg-[#FAF6F0]/40 font-semibold text-slate-800"
+              />
+              {searchQuery && (
+                <button 
+                  type="button" 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 hover:bg-slate-100 rounded-full w-5 h-5 flex items-center justify-center text-slate-400"
+                >
+                  &times;
+                </button>
+              )}
+            </div>
+
+            {/* Desktop Notification bell dropdown next to search box */}
+            <div className="hidden md:block bg-white border border-[#EBE6DE] rounded-xl p-1 shadow-xs hover:border-[#C2593E]/40 transition-colors">
+              <NotificationDropdown />
+            </div>
+          </div>
         </div>
 
-        {/* Informative sticky style badge */}
-        <div className="bg-amber-50/70 border border-amber-200/50 rounded-xl p-2 px-3 text-[10px] font-bold text-amber-900 leading-normal max-w-sm">
-          💡 <span className="uppercase text-[9px] tracking-wide text-amber-800">Production Secret:</span> Expand the <b>Production Steps</b> drawer on any card to resolve checklist steps without opening modal popups!
+        {/* Board Switcher (Trello-inspired design directly context-bound) */}
+        <div className="flex flex-wrap items-center gap-2 bg-[#FAF6F0] p-1.5 rounded-xl border border-[#EBE6DE]">
+          <button
+            onClick={() => setActiveBoardId('main')}
+            className={cn(
+              "px-4.5 py-2 text-xs font-extrabold rounded-lg transition-all uppercase tracking-wider cursor-pointer",
+              activeBoardId === 'main'
+                ? 'bg-[#C2593E] text-white shadow-sm'
+                : 'bg-white/80 border border-[#EBE6DE]/40 text-slate-600 hover:bg-white hover:text-slate-900 shadow-xs'
+            )}
+          >
+            🗂️ Main Board
+          </button>
+          {boards.map(b => (
+            <div key={b.id} className="flex items-center gap-1 bg-white/40 p-1 rounded-lg border border-[#EBE6DE]/50">
+              <button
+                onClick={() => setActiveBoardId(b.id!)}
+                className={cn(
+                  "px-3.5 py-1.5 text-xs font-extrabold rounded-lg transition-all uppercase tracking-wider cursor-pointer",
+                  activeBoardId === b.id
+                    ? 'bg-[#C2593E] text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-white hover:text-slate-950'
+                )}
+              >
+                📁 {b.name}
+              </button>
+              {user?.role === 'master_admin' && activeBoardId === b.id && (
+                <button
+                  onClick={() => handleDeleteBoard(b.id!, b.name)}
+                  className="p-1 text-red-500 hover:bg-red-50 rounded hover:text-red-700 transition cursor-pointer"
+                  title="Delete this board permanent"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          ))}
+          
+          {user?.role === 'master_admin' && (
+            <button
+              onClick={() => setIsAddBoardModalOpen(true)}
+              className="px-3.5 py-2 text-xs font-bold rounded-lg border border-dashed border-[#C2593E]/40 text-[#C2593E] hover:border-[#C2593E] hover:bg-[#C2593E]/5 transition-all flex items-center gap-1.5 uppercase tracking-wide cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" /> Create Board
+            </button>
+          )}
         </div>
       </div>
 
@@ -306,27 +378,6 @@ export function JobBoard() {
       <div className="bg-white rounded-2xl border border-[#EBE6DE] p-5 shadow-sm space-y-4">
         {/* Controls Grid */}
         <div className="flex flex-wrap items-center gap-3.5">
-          {/* 1. Search Box (Exactly one, old one removed as requested) */}
-          <div className="relative min-w-[200px] flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input 
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by title, description or brand..."
-              className="w-full border border-slate-200 rounded-xl text-xs pl-9 pr-8 h-10 outline-none focus:border-[#C2593E] focus:ring-1 focus:ring-[#C2593E] bg-[#FAF6F0]/40 font-semibold text-slate-800"
-            />
-            {searchQuery && (
-              <button 
-                type="button" 
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 hover:bg-slate-100 rounded-full w-5 h-5 flex items-center justify-center text-slate-400"
-              >
-                &times;
-              </button>
-            )}
-          </div>
-
           {/* 2. Brand Selector */}
           <div className="relative">
             <select 
@@ -462,54 +513,6 @@ export function JobBoard() {
         </div>
       </div>
 
-      {/* Board Brand Tab Separators (Trello nested filing look and feel) */}
-      <div className="flex flex-wrap items-center gap-2 bg-[#FAF6F0] p-1.5 rounded-2xl border border-[#EBE6DE]">
-        <button
-          onClick={() => setActiveBoardId('main')}
-          className={cn(
-            "px-5 py-2.5 text-xs font-extrabold rounded-xl transition-all uppercase tracking-wider cursor-pointer",
-            activeBoardId === 'main'
-              ? 'bg-[#C2593E] text-white shadow-sm scale-102'
-              : 'bg-white/80 border border-[#EBE6DE] text-slate-600 hover:bg-white hover:text-slate-900 shadow-xs'
-          )}
-        >
-          🗂️ Main Board
-        </button>
-        {boards.map(b => (
-          <div key={b.id} className="flex items-center gap-1 bg-white/40 p-1 rounded-xl border border-[#EBE6DE]/60">
-            <button
-              onClick={() => setActiveBoardId(b.id!)}
-              className={cn(
-                "px-4 py-2 text-xs font-extrabold rounded-xl transition-all uppercase tracking-wider cursor-pointer",
-                activeBoardId === b.id
-                  ? 'bg-[#C2593E] text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-white hover:text-slate-950'
-              )}
-            >
-              📁 {b.name}
-            </button>
-            {user?.role === 'master_admin' && activeBoardId === b.id && (
-              <button
-                onClick={() => handleDeleteBoard(b.id!, b.name)}
-                className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg hover:text-red-700 transition cursor-pointer"
-                title="Delete this board permanent"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        ))}
-        
-        {user?.role === 'master_admin' && (
-          <button
-            onClick={() => setIsAddBoardModalOpen(true)}
-            className="px-4 py-2 text-xs font-bold rounded-xl border border-dashed border-[#C2593E]/40 text-[#C2593E] hover:border-[#C2593E] hover:bg-[#C2593E]/5 transition-all flex items-center gap-1.5 uppercase tracking-wide cursor-pointer"
-          >
-            <Plus className="w-4 h-4" /> Create Board
-          </button>
-        )}
-      </div>
-
       {isAddBoardModalOpen && (
         <div className="fixed z-50 inset-0 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <motion.div
@@ -565,7 +568,7 @@ export function JobBoard() {
               </div>
               <span className="bg-white text-slate-600 text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs border border-[#EBE6DE]">{todoJobs.length}</span>
             </div>
-            <div className="space-y-4 overflow-y-auto max-h-[75vh] lg:max-h-full pb-2">
+            <div className="space-y-4 overflow-y-auto max-h-[75vh] lg:max-h-full pt-1.5 pb-4 px-1">
               <AnimatePresence>
                 {todoJobs.map(job => (
                   <motion.div 
@@ -596,7 +599,7 @@ export function JobBoard() {
               </div>
               <span className="bg-white text-[#C2593E] text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs border border-[#DECAB3]">{progressJobs.length}</span>
             </div>
-            <div className="space-y-4 overflow-y-auto max-h-[75vh] lg:max-h-full pb-2">
+            <div className="space-y-4 overflow-y-auto max-h-[75vh] lg:max-h-full pt-1.5 pb-4 px-1">
               <AnimatePresence>
                 {progressJobs.map(job => (
                   <motion.div 
@@ -627,7 +630,7 @@ export function JobBoard() {
               </div>
               <span className="bg-white text-emerald-800 text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs border border-[#C9DEC9]">{finishedJobs.length}</span>
             </div>
-            <div className="space-y-4 overflow-y-auto max-h-[75vh] lg:max-h-full pb-2">
+            <div className="space-y-4 overflow-y-auto max-h-[75vh] lg:max-h-full pt-1.5 pb-4 px-1">
               <AnimatePresence>
                 {finishedJobs.map(job => (
                   <motion.div 
@@ -658,7 +661,7 @@ export function JobBoard() {
               </div>
               <span className="bg-white text-violet-800 text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs border border-[#D9CBE2]">{postedJobs.length}</span>
             </div>
-            <div className="space-y-4 overflow-y-auto max-h-[75vh] lg:max-h-full pb-2">
+            <div className="space-y-4 overflow-y-auto max-h-[75vh] lg:max-h-full pt-1.5 pb-4 px-1">
               <AnimatePresence>
                 {postedJobs.map(job => (
                   <motion.div 
