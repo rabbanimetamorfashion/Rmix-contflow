@@ -1,17 +1,30 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LayoutDashboard, Briefcase, Users, LogOut, Bell, ShoppingCart } from 'lucide-react';
+import { useBoards } from '../contexts/BoardContext';
+import { LayoutDashboard, Briefcase, Users, LogOut, Bell, ShoppingCart, Plus, Trash2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { NotificationDropdown } from './NotificationDropdown';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { motion, AnimatePresence } from 'motion/react';
 
 export function Layout() {
   const { user, signOut } = useAuth();
   const location = useLocation();
   const [isEditingProfile, setIsEditingProfile] = React.useState(false);
   const [newDisplayName, setNewDisplayName] = React.useState(user?.displayName || '');
+
+  const {
+    boards,
+    activeBoardId,
+    setActiveBoardId,
+    isAddBoardModalOpen,
+    setIsAddBoardModalOpen,
+    createBoard,
+    deleteBoard
+  } = useBoards();
+  const [newBoardName, setNewBoardName] = React.useState('');
 
   React.useEffect(() => {
     setNewDisplayName(user?.displayName || '');
@@ -26,6 +39,19 @@ export function Layout() {
     } catch (err) {
       console.error(err);
       alert("Failed to update profile");
+    }
+  };
+
+  const handleAddBoardSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newBoardName.trim()) return;
+    try {
+      await createBoard(newBoardName.trim());
+      setNewBoardName('');
+      setIsAddBoardModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to create board. Make sure you are master admin.");
     }
   };
 
@@ -48,21 +74,119 @@ export function Layout() {
           </div>
         </div>
         <nav className="flex-1 px-3 py-6 space-y-2 lg:px-4">
-          {navigation.map((item) => (
-            <Link
-              key={item.name}
-              to={item.href}
-              className={cn(
-                "flex items-center justify-center md:justify-start px-3 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200",
-                item.current 
-                  ? "bg-[#FAF6F0] text-[#C2593E] border-l-4 border-[#C2593E] pl-2 rounded-l-none" 
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-              )}
-            >
-              <item.icon className={cn("h-5 w-5 flex-shrink-0 md:mr-3", item.current ? "text-[#C2593E]" : "text-slate-400")} />
-              <span className="hidden md:inline">{item.name}</span>
-            </Link>
-          ))}
+          {navigation.map((item) => {
+            if (item.name === 'Job Board') {
+              return (
+                <div key={item.name} className="space-y-1">
+                  {/* Job Board Main Link Container */}
+                  <div className={cn(
+                    "flex items-center justify-between px-3 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 group",
+                    item.current 
+                      ? "bg-[#FAF6F0] text-[#C2593E] border-l-4 border-[#C2593E] pl-2 rounded-l-none" 
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  )}>
+                    <Link
+                      to={item.href}
+                      className="flex items-center flex-1"
+                    >
+                      <item.icon className={cn("h-5 w-5 flex-shrink-0 md:mr-3", item.current ? "text-[#C2593E]" : "text-slate-400")} />
+                      <span className="hidden md:inline">{item.name}</span>
+                    </Link>
+
+                    {/* Plus Icon on the right of the job board writing (Admins/Master admins only) */}
+                    {user?.role === 'master_admin' && (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setIsAddBoardModalOpen(true);
+                        }}
+                        className="hidden md:flex p-1 hover:bg-[#C2593E]/10 rounded text-[#C2593E] transition cursor-pointer"
+                        title="Create New Board"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Available Job Boards nested switcher underneath (shown when Job Board menu is active) */}
+                  {item.current && (
+                    <div className="hidden md:flex flex-col pl-7 pr-1 space-y-1 mt-1 border-l border-slate-200/60 ml-5.5">
+                      {/* Main Board */}
+                      <button
+                        onClick={() => setActiveBoardId('main')}
+                        className={cn(
+                          "flex items-center justify-between w-full px-2.5 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer text-left",
+                          activeBoardId === 'main'
+                            ? "bg-[#C2593E]/10 text-[#C2593E]"
+                            : "text-slate-500 hover:bg-slate-100/70 hover:text-slate-800"
+                        )}
+                      >
+                        <span>🗂️ Main Board</span>
+                      </button>
+
+                      {/* Custom Boards list */}
+                      {boards.map(b => (
+                        <div
+                          key={b.id}
+                          className={cn(
+                            "flex items-center justify-between w-full px-2.5 py-1.5 text-xs font-bold rounded-lg group/board-item transition-all",
+                            activeBoardId === b.id
+                              ? "bg-[#C2593E]/10 text-[#C2593E]"
+                              : "text-slate-500 hover:bg-slate-100/70 hover:text-slate-800"
+                          )}
+                        >
+                          <button
+                            onClick={() => setActiveBoardId(b.id!)}
+                            className="flex-1 text-left truncate cursor-pointer"
+                            title={b.name}
+                          >
+                            📁 {b.name}
+                          </button>
+
+                          {/* Delete Icon on the right of the board name (Master admins only, if board is active or when hovered) */}
+                          {user?.role === 'master_admin' && (
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (b.id && window.confirm(`Are you sure you want to delete the job board "${b.name}"? All jobs on this board will be moved back to the Main Board.`)) {
+                                  try {
+                                    await deleteBoard(b.id, b.name);
+                                  } catch (error) {
+                                    console.error(error);
+                                  }
+                                }
+                              }}
+                              className="opacity-0 group-hover/board-item:opacity-100 hover:text-red-600 transition p-0.5 rounded cursor-pointer ml-1"
+                              title={`Delete ${b.name}`}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <Link
+                key={item.name}
+                to={item.href}
+                className={cn(
+                  "flex items-center justify-center md:justify-start px-3 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200",
+                  item.current 
+                    ? "bg-[#FAF6F0] text-[#C2593E] border-l-4 border-[#C2593E] pl-2 rounded-l-none" 
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                )}
+              >
+                <item.icon className={cn("h-5 w-5 flex-shrink-0 md:mr-3", item.current ? "text-[#C2593E]" : "text-slate-400")} />
+                <span className="hidden md:inline">{item.name}</span>
+              </Link>
+            );
+          })}
         </nav>
         <div className="p-3 md:p-4 border-t border-[#EBE6DE]">
           <div className="flex items-center mb-4 justify-center md:justify-start">
@@ -156,6 +280,49 @@ export function Layout() {
           </Link>
         ))}
       </div>
+
+      {/* Create Board Modal */}
+      {isAddBoardModalOpen && (
+        <div className="fixed z-50 inset-0 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-xl border border-[#EBE6DE] overflow-hidden max-w-sm w-full p-6 text-[#221B18]"
+          >
+            <h3 className="text-lg font-black mb-1.5 tracking-tight">Create Job Board</h3>
+            <p className="text-slate-500 text-xs mb-5">Enter a name for the new category board. Only master admins can create new boards.</p>
+            <form onSubmit={handleAddBoardSubmit} className="space-y-4">
+              <div>
+                <label className="block text-[9px] uppercase font-bold text-[#8C6A5C] tracking-wider mb-2">Board Category Name</label>
+                <input
+                  type="text"
+                  required
+                  value={newBoardName}
+                  onChange={e => setNewBoardName(e.target.value)}
+                  placeholder="ex: Video Production, Social Ads, Main Store"
+                  className="w-full text-xs px-3.5 py-3 border border-slate-200 rounded-xl bg-[#FAF6F0]/40 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#C2593E] font-bold text-slate-800"
+                  maxLength={100}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => { setIsAddBoardModalOpen(false); setNewBoardName(''); }}
+                  className="px-4 py-2.5 text-xs font-bold text-slate-600 bg-white border border-[#EBE6DE] rounded-xl hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2.5 text-xs font-black text-white bg-[#C2593E] rounded-xl hover:bg-[#A3432A] transition shadow-sm cursor-pointer"
+                >
+                  Create Board
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import { collection, query, onSnapshot, orderBy, doc, setDoc, getDocs, deleteDoc, updateDoc, addDoc } from 'firebase/firestore';
 import { useAuth, AppUser } from '../contexts/AuthContext';
+import { useBoards } from '../contexts/BoardContext';
 import { Job, Board } from '../types';
 import { JobCard } from '../components/JobCard';
 import { JobModal } from '../components/JobModal';
@@ -32,11 +33,15 @@ export function JobBoard() {
   const [selectedAssignee, setSelectedAssignee] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Custom Boards State
-  const [boards, setBoards] = useState<Board[]>([]);
-  const [activeBoardId, setActiveBoardId] = useState<string>('main');
-  const [isAddBoardModalOpen, setIsAddBoardModalOpen] = useState(false);
-  const [newBoardName, setNewBoardName] = useState('');
+  const {
+    boards,
+    activeBoardId,
+    setActiveBoardId,
+    renameBoard
+  } = useBoards();
+
+  const [isEditingBoardName, setIsEditingBoardName] = useState(false);
+  const [editedBoardName, setEditedBoardName] = useState('');
 
   useEffect(() => {
     // Listen to jobs
@@ -51,16 +56,9 @@ export function JobBoard() {
       setUsers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser)));
     });
 
-    // Listen to custom boards
-    const qBoards = query(collection(db, 'boards'), orderBy('createdAt', 'asc'));
-    const unsubBoards = onSnapshot(qBoards, (snapshot) => {
-      setBoards(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Board)));
-    });
-
     return () => {
       unsubJobs();
       unsubUsers();
-      unsubBoards();
     };
   }, []);
 
@@ -127,46 +125,20 @@ export function JobBoard() {
     }
   };
 
-  const handleDeleteBoard = async (boardId: string, boardName: string) => {
-    if (boardId === 'main') return;
-    if (!window.confirm(`Are you sure you want to delete the job board "${boardName}"? All jobs on this board will be moved back to the Main Board.`)) return;
-    try {
-      await deleteDoc(doc(db, 'boards', boardId));
-      
-      const affectedJobs = jobs.filter(j => j.boardId === boardId);
-      for (const job of affectedJobs) {
-        if (job.id) {
-          await updateDoc(doc(db, 'jobs', job.id), { boardId: 'main' });
-        }
-      }
-      
-      setActiveBoardId('main');
-      alert(`Board "${boardName}" has been successfully deleted.`);
-    } catch (err) {
-      console.error("Failed to delete board:", err);
-      alert("Failed to delete board. Check permissions.");
-    }
-  };
-
-  const handleAddBoardSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleRenameBoardSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!user || user.role !== 'master_admin') return;
-    if (!newBoardName.trim()) {
+    if (activeBoardId === 'main') return;
+    if (!editedBoardName.trim()) {
       alert("Please enter a board name.");
       return;
     }
     try {
-      const docRef = await addDoc(collection(db, 'boards'), {
-        name: newBoardName.trim(),
-        createdAt: Date.now(),
-        creatorId: user.uid
-      });
-      setIsAddBoardModalOpen(false);
-      setNewBoardName('');
-      setActiveBoardId(docRef.id);
+      await renameBoard(activeBoardId, editedBoardName.trim());
+      setIsEditingBoardName(false);
     } catch (err) {
-      console.error("Failed to create board:", err);
-      alert("Failed to create board. Check permissions.");
+      console.error("Failed to rename board:", err);
+      alert("Failed to rename board.");
     }
   };
 
@@ -288,23 +260,75 @@ export function JobBoard() {
   return (
     <div className="max-w-full mx-auto flex flex-col h-full space-y-6 text-[#221B18] antialiased">
       
-      {/* Header with Dynamic Board Name & Embedded Switcher */}
+      {/* Header with Dynamic Board Name, Switcher & Integrated Actions */}
       <div className="flex flex-col gap-4 bg-white/70 p-5 rounded-2xl border border-[#EBE6DE] shadow-sm backdrop-blur-sm">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h1 className="text-2xl font-black tracking-tight text-[#221B18] flex items-center gap-2">
-            <LayoutGrid className="w-6 h-6 text-[#C2593E]" />
-            {currentBoardName}
-          </h1>
+        {/* Row 1: Board Info + Search and Notification on Absolute Right */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-[#EBE6DE]/50 pb-3">
+          {/* Active Board Name & Change button */}
+          <div className="flex items-center gap-2">
+            <LayoutGrid className="w-6 h-6 text-[#C2593E] flex-shrink-0" />
+            {isEditingBoardName && activeBoardId !== 'main' ? (
+              <form 
+                onSubmit={(e) => { e.preventDefault(); handleRenameBoardSubmit(); }} 
+                className="flex items-center gap-1.5"
+              >
+                <input
+                  type="text"
+                  value={editedBoardName}
+                  onChange={e => setEditedBoardName(e.target.value)}
+                  className="px-2.5 py-1 text-sm font-black border border-[#C2593E] rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-[#C2593E] text-slate-800"
+                  autoFocus
+                  onKeyDown={e => {
+                    if (e.key === 'Escape') setIsEditingBoardName(false);
+                  }}
+                />
+                <button
+                  type="submit"
+                  className="px-2 py-1 text-[11px] font-bold text-white bg-[#C2593E] hover:bg-[#A3432A] rounded transition cursor-pointer"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingBoardName(false)}
+                  className="px-2 py-1 text-[11px] font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </form>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-xl md:text-2xl font-black tracking-tight text-[#221B18]">
+                  {currentBoardName}
+                </h1>
+                {user?.role === 'master_admin' && activeBoardId !== 'main' && (
+                  <button
+                    onClick={() => {
+                      setEditedBoardName(currentBoardName);
+                      setIsEditingBoardName(true);
+                    }}
+                    className="p-1 text-slate-400 hover:text-[#C2593E] hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                    title="Change board name"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <title>Rename Board</title>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
 
-          {/* Actionable Unified Search box & Notifications */}
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <div className="relative min-w-[240px] max-w-sm flex-1 sm:w-80">
+          {/* Actionable Unified Search box & Notifications stuck on the absolute right */}
+          <div className="flex items-center gap-3 w-full sm:w-auto self-stretch sm:self-auto justify-end">
+            <div className="relative min-w-[200px] max-w-sm flex-1 sm:w-72">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input 
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by title, description or brand..."
+                placeholder="Search by title, desc or brand..."
                 className="w-full border border-slate-200 rounded-xl text-xs pl-9 pr-8 h-10 outline-none focus:border-[#C2593E] focus:ring-1 focus:ring-[#C2593E] bg-[#FAF6F0]/40 font-semibold text-slate-800"
               />
               {searchQuery && (
@@ -318,67 +342,15 @@ export function JobBoard() {
               )}
             </div>
 
-            {/* Desktop Notification bell dropdown next to search box */}
-            <div className="hidden md:block bg-white border border-[#EBE6DE] rounded-xl p-1 shadow-xs hover:border-[#C2593E]/40 transition-colors">
+            <div className="bg-white border border-[#EBE6DE] rounded-xl p-1 h-10 w-10 flex items-center justify-center shadow-xs hover:border-[#C2593E]/40 transition-colors flex-shrink-0">
               <NotificationDropdown />
             </div>
           </div>
         </div>
 
-        {/* Board Switcher (Trello-inspired design directly context-bound) */}
-        <div className="flex flex-wrap items-center gap-2 bg-[#FAF6F0] p-1.5 rounded-xl border border-[#EBE6DE]">
-          <button
-            onClick={() => setActiveBoardId('main')}
-            className={cn(
-              "px-4.5 py-2 text-xs font-extrabold rounded-lg transition-all uppercase tracking-wider cursor-pointer",
-              activeBoardId === 'main'
-                ? 'bg-[#C2593E] text-white shadow-sm'
-                : 'bg-white/80 border border-[#EBE6DE]/40 text-slate-600 hover:bg-white hover:text-slate-900 shadow-xs'
-            )}
-          >
-            🗂️ Main Board
-          </button>
-          {boards.map(b => (
-            <div key={b.id} className="flex items-center gap-1 bg-white/40 p-1 rounded-lg border border-[#EBE6DE]/50">
-              <button
-                onClick={() => setActiveBoardId(b.id!)}
-                className={cn(
-                  "px-3.5 py-1.5 text-xs font-extrabold rounded-lg transition-all uppercase tracking-wider cursor-pointer",
-                  activeBoardId === b.id
-                    ? 'bg-[#C2593E] text-white shadow-sm'
-                    : 'text-slate-600 hover:bg-white hover:text-slate-950'
-                )}
-              >
-                📁 {b.name}
-              </button>
-              {user?.role === 'master_admin' && activeBoardId === b.id && (
-                <button
-                  onClick={() => handleDeleteBoard(b.id!, b.name)}
-                  className="p-1 text-red-500 hover:bg-red-50 rounded hover:text-red-700 transition cursor-pointer"
-                  title="Delete this board permanent"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          ))}
-          
-          {user?.role === 'master_admin' && (
-            <button
-              onClick={() => setIsAddBoardModalOpen(true)}
-              className="px-3.5 py-2 text-xs font-bold rounded-lg border border-dashed border-[#C2593E]/40 text-[#C2593E] hover:border-[#C2593E] hover:bg-[#C2593E]/5 transition-all flex items-center gap-1.5 uppercase tracking-wide cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" /> Create Board
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Filter and Board brand control panel */}
-      <div className="bg-white rounded-2xl border border-[#EBE6DE] p-5 shadow-sm space-y-4">
-        {/* Controls Grid */}
-        <div className="flex flex-wrap items-center gap-3.5">
-          {/* 2. Brand Selector */}
+        {/* Row 2: Filters & Adjustments replacing old board switcher space */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Brand selection filter */}
           <div className="relative">
             <select 
               value={selectedBrand}
@@ -392,7 +364,7 @@ export function JobBoard() {
             </select>
           </div>
 
-          {/* 3. Crew Member filter (Admins/Master admins only) */}
+          {/* Member list filter (Admins / Master Admins only) */}
           {(user?.role === 'admin' || user?.role === 'master_admin') && (
             <div className="relative">
               <select 
@@ -408,7 +380,7 @@ export function JobBoard() {
             </div>
           )}
 
-          {/* 4. Timeframe Selector */}
+          {/* Timeframe selector */}
           <div className="relative">
             <select 
               value={timeframe}
@@ -422,15 +394,39 @@ export function JobBoard() {
             </select>
           </div>
 
+          {/* Custom Date Inputs inline */}
           {timeframe === 'custom' && (
-            <div className="flex gap-1.5 h-10 items-center">
-              <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="border border-slate-200 rounded-xl text-xs px-2 h-10 bg-[#FAF6F0]/30 font-semibold text-slate-700" />
+            <div className="flex gap-1.5 h-10 items-center bg-white border border-slate-200 px-2 rounded-xl">
+              <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="text-[10px] font-semibold text-slate-700 outline-none bg-transparent" />
               <span className="text-slate-400 font-bold text-xs">-</span>
-              <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="border border-slate-200 rounded-xl text-xs px-2 h-10 bg-[#FAF6F0]/30 font-semibold text-slate-700" />
+              <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="text-[10px] font-semibold text-slate-700 outline-none bg-transparent" />
             </div>
           )}
 
-          {/* 5. Production Personal Toggles */}
+          {/* Sort selection & order picker */}
+          <div className="flex items-center gap-1">
+            <select 
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="border border-slate-200 rounded-xl text-xs pl-3.5 pr-8 h-10 outline-none focus:border-[#C2593E] bg-[#FAF6F0]/20 font-bold text-slate-700 cursor-pointer min-w-[125px]"
+            >
+              <option value="newest">Sort: Newest</option>
+              <option value="requestedDeadline">Sort: Requested Deadline</option>
+              <option value="productionDeadline">Sort: Prod Deadline</option>
+              <option value="jobType">Sort: Job Type</option>
+              <option value="alpha">Sort: A-Z Title</option>
+            </select>
+            
+            <button
+              onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+              className="h-10 px-3 border border-slate-200 rounded-xl shadow-xs bg-white hover:bg-slate-50 text-slate-600 font-bold text-xs uppercase flex items-center justify-center cursor-pointer"
+              title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+            >
+              {sortOrder === 'asc' ? '↑' : '↓'}
+            </button>
+          </div>
+
+          {/* My tasks checkboxes toggle (Production role only) */}
           {user?.role === 'production' && (
             <button 
               onClick={() => setShowMyJobs(prev => !prev)}
@@ -446,6 +442,7 @@ export function JobBoard() {
             </button>
           )}
 
+          {/* My orders tracking toggle */}
           {user && (
             <button 
               onClick={() => setShowMyOrders(prev => !prev)}
@@ -460,33 +457,10 @@ export function JobBoard() {
             </button>
           )}
 
-          {/* 6. Sort By Selection & Sort Order */}
-          <div className="flex items-center gap-1">
-            <select 
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="border border-slate-200 rounded-xl text-xs pl-3.5 pr-8 h-10 outline-none focus:border-[#C2593E] bg-[#FAF6F0]/20 font-bold text-slate-700 cursor-pointer min-w-[120px]"
-            >
-              <option value="newest">Sort: Newest</option>
-              <option value="requestedDeadline">Sort: Requested Deadline</option>
-              <option value="productionDeadline">Sort: Prod Deadline</option>
-              <option value="jobType">Sort: Job Type</option>
-              <option value="alpha">Sort: A-Z Title</option>
-            </select>
-            
-            <button
-              onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-              className="h-10 px-3 border border-slate-200 rounded-xl shadow-sm bg-white hover:bg-slate-50 text-slate-600 font-bold text-xs uppercase tracking-wider flex items-center gap-1 cursor-pointer"
-              title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
-            >
-              {sortOrder === 'asc' ? '↑' : '↓'}
-            </button>
-          </div>
+          {/* Flex spacing helper to align actions to the absolute right side */}
+          <div className="flex-1 min-w-[10px]"></div>
 
-          {/* Empty Space pushers for right-alignment */}
-          <div className="flex-1"></div>
-
-          {/* 7. Action Button Panel (Wipe / Create Job Order buttons strictly aligned to the right of sort controls!) */}
+          {/* Master actions panel: delete database (if master_admin), and create request */}
           <div className="flex items-center gap-2">
             {user?.role === 'master_admin' && (
               <button
@@ -495,65 +469,22 @@ export function JobBoard() {
                 title="Wipe Board Database"
               >
                 <Trash2 className="w-4 h-4" />
-                <span>Wipe Database</span>
+                <span className="hidden md:inline">Wipe Database</span>
               </button>
             )}
 
             {allowedToCreate && (
               <button
                 onClick={() => handleOpenModal()}
-                className="bg-[#C2593E] hover:bg-[#A3432A] text-white px-5.5 h-10 rounded-xl text-xs font-extrabold uppercase tracking-widest transition flex items-center gap-2 shadow-sm cursor-pointer hover:scale-[1.02]"
+                className="bg-[#C2593E] hover:bg-[#A3432A] text-white px-5.5 h-10 rounded-xl text-xs font-extrabold uppercase tracking-widest transition flex items-center gap-2 shadow-sm cursor-pointer hover:scale-[1.01]"
               >
                 <Plus className="w-4 h-4" />
                 <span>New Job Request</span>
               </button>
             )}
           </div>
-
         </div>
       </div>
-
-      {isAddBoardModalOpen && (
-        <div className="fixed z-50 inset-0 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-xl border border-[#EBE6DE] overflow-hidden max-w-sm w-full p-6 text-[#221B18]"
-          >
-            <h3 className="text-lg font-black mb-1.5 tracking-tight">Create Job Board</h3>
-            <p className="text-slate-500 text-xs mb-5">Enter a name for the new category board. Only master admins can create new boards.</p>
-            <form onSubmit={handleAddBoardSubmit} className="space-y-4">
-              <div>
-                <label className="block text-[9px] uppercase font-bold text-[#8C6A5C] tracking-wider mb-2">Board Category Name</label>
-                <input
-                  type="text"
-                  required
-                  value={newBoardName}
-                  onChange={e => setNewBoardName(e.target.value)}
-                  placeholder="ex: Video Production, Social Ads, Main Store"
-                  className="w-full text-xs px-3.5 py-3 border border-slate-200 rounded-xl bg-[#FAF6F0]/40 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#C2593E] font-bold text-slate-800"
-                  maxLength={100}
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-3">
-                <button
-                  type="button"
-                  onClick={() => { setIsAddBoardModalOpen(false); setNewBoardName(''); }}
-                  className="px-4 py-2.5 text-xs font-bold text-slate-600 bg-white border border-[#EBE6DE] rounded-xl hover:bg-slate-100 transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2.5 text-xs font-black text-white bg-[#C2593E] rounded-xl hover:bg-[#A3432A] transition shadow-sm cursor-pointer"
-                >
-                  Create Board
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
 
       {/* Kanban Board Grid */}
       <div className="flex-1 overflow-x-auto min-h-[580px] pb-6">

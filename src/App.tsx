@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { BoardProvider } from './contexts/BoardContext';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { JobBoard } from './pages/JobBoard';
@@ -21,21 +22,23 @@ function PrivateRoute({ children, allowedRoles }: { children: React.ReactNode, a
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
-            <Route index element={<Dashboard />} />
-            <Route path="order" element={<OrderForm />} />
-            <Route path="jobs" element={<JobBoard />} />
-            <Route path="roles" element={
-              <PrivateRoute allowedRoles={['master_admin']}>
-                <RoleManagement />
-              </PrivateRoute>
-            } />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <BoardProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
+              <Route index element={<Dashboard />} />
+              <Route path="order" element={<OrderForm />} />
+              <Route path="jobs" element={<JobBoard />} />
+              <Route path="roles" element={
+                <PrivateRoute allowedRoles={['master_admin']}>
+                  <RoleManagement />
+                </PrivateRoute>
+              } />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </BoardProvider>
     </AuthProvider>
   );
 }
